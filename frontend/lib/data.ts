@@ -26,7 +26,10 @@ export type VenueRecord = {
   name: string;
   building: string;
   room: string;
+  location: string;
   capacity: number;
+  rows: number;
+  seatsPerRow: number;
   occupancy: number;
   status: Status;
 };
@@ -36,4 +39,3 @@ export const venues = venueRecords as VenueRecord[];
 export const stats = analytics.stats;
 export const crowdPattern = analytics.crowdPattern;
 export const scans = registrations.map(({ attendee, pass, event, status }) => ({ attendee, pass, event, status }));
-
