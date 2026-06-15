@@ -16,15 +16,15 @@ export function Navbar() {
   const links = roleNavigation[role];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-ink/10 bg-white/85 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-cyan-200/10 bg-void/70 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-campus text-white">EP</span>
-          <span>EventPulse</span>
+        <Link href="/" className="flex items-center gap-3 font-black uppercase tracking-[0.18em]">
+          <span className="grid h-10 w-10 place-items-center rounded-xl border border-cyan-300/35 bg-cyan-300/10 text-cyan-100 shadow-glow">EP</span>
+          <span className="hidden text-white sm:inline">EventPulse</span>
         </Link>
         <div className="hidden items-center gap-6 md:flex">
           {links.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium text-ink/70 hover:text-ink">
+            <Link key={link.href} href={link.href} className="text-xs font-bold uppercase tracking-[0.16em] text-white/58 transition hover:text-cyan-100">
               {link.label}
             </Link>
           ))}
@@ -39,3 +39,5 @@ export function Navbar() {
     </header>
   );
 }
+
+export const OpsNavbar = Navbar;

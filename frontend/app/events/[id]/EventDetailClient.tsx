@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@/components/Button";
-import { CapacityBar } from "@/components/CapacityBar";
-import { StatusBadge } from "@/components/StatusBadge";
+import { NeonButton } from "@/components/NeonButton";
+import { CapacityRadar, ControlChip, CrowdHeatBar, GlassPanel, QueueFlowLane, StatusBeacon } from "@/components/OpsUI";
 import type { EventRecord, VenueRecord } from "@/lib/data";
 
 function formatDateTime(value: string) {
@@ -22,6 +21,7 @@ export function EventDetailClient({ event, venue }: { event: EventRecord; venue?
   const [registrationState, setRegistrationState] = useState<"none" | "registered" | "waitlisted">("none");
 
   const remainingSeats = Math.max(event.capacity - registeredCount, 0);
+  const crowdLevel = Math.round((registeredCount / event.capacity) * 100);
   const canRegister = remainingSeats > 0 && event.status !== "closed";
 
   const localStatus = useMemo(() => {
@@ -53,72 +53,53 @@ export function EventDetailClient({ event, venue }: { event: EventRecord; venue?
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <section className="overflow-hidden rounded-lg border border-ink/10 bg-white shadow-soft">
-        <div className="h-64" style={{ background: event.image }} />
-        <div className="grid gap-6 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6">
+        <GlassPanel className="overflow-hidden">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-campus">{event.category}</p>
-              <h2 className="mt-1 text-2xl font-bold">{event.title}</h2>
+              <ControlChip>{event.category}</ControlChip>
+              <h2 className="mt-4 text-4xl font-black uppercase tracking-wide text-white">{event.title}</h2>
+              <p className="mt-4 max-w-3xl text-base leading-8 text-white/60">{event.description}</p>
             </div>
-            <StatusBadge status={localStatus} />
+            <StatusBeacon status={localStatus} />
           </div>
-          <p className="text-lg leading-8 text-ink/70">{event.description}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-md bg-mist p-4">
-              <p className="text-sm text-ink/55">Starts</p>
-              <p className="font-bold">{formatDateTime(event.startTime)}</p>
-            </div>
-            <div className="rounded-md bg-mist p-4">
-              <p className="text-sm text-ink/55">Ends</p>
-              <p className="font-bold">{formatDateTime(event.endTime)}</p>
-            </div>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">Start</p><p className="mt-1 font-black text-white">{formatDateTime(event.startTime)}</p></div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">End</p><p className="mt-1 font-black text-white">{formatDateTime(event.endTime)}</p></div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">Venue zone</p><p className="mt-1 font-black text-white">{venue ? `${venue.name} / ${venue.room}` : event.venue}</p></div>
           </div>
-          <div className="rounded-md bg-mist p-4">
-            <p className="text-sm text-ink/55">Venue info</p>
-            <p className="mt-1 font-bold">{venue ? `${venue.name}, ${venue.building}, ${venue.room}` : event.venue}</p>
-            <p className="mt-2 text-sm text-ink/60">Venue capacity: {venue?.capacity ?? event.capacity}</p>
-          </div>
-        </div>
-      </section>
+        </GlassPanel>
 
-      <aside className="rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
-        <h2 className="text-xl font-bold">Registration</h2>
-        <div className="mt-5"><CapacityBar current={registeredCount} capacity={event.capacity} /></div>
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="rounded-md bg-mist p-4">
-            <p className="text-sm text-ink/55">Registered</p>
-            <p className="text-2xl font-bold">{registeredCount}</p>
-          </div>
-          <div className="rounded-md bg-mist p-4">
-            <p className="text-sm text-ink/55">Checked in</p>
-            <p className="text-2xl font-bold">{event.checkedInCount}</p>
-          </div>
-          <div className="rounded-md bg-mist p-4">
-            <p className="text-sm text-ink/55">Waitlist</p>
-            <p className="text-2xl font-bold">{waitlistCount}</p>
-          </div>
-          <div className="rounded-md bg-mist p-4">
-            <p className="text-sm text-ink/55">Remaining</p>
-            <p className="text-2xl font-bold">{remainingSeats}</p>
-          </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <CapacityRadar current={registeredCount} capacity={event.capacity} />
+          <GlassPanel>
+            <h2 className="text-xl font-black text-white">Crowd Pressure</h2>
+            <div className="mt-5 grid gap-5">
+              <CrowdHeatBar value={crowdLevel} />
+              <QueueFlowLane label="Waitlist pressure" count={waitlistCount} />
+              <QueueFlowLane label="Remaining seats" count={remainingSeats} tone="lime" />
+            </div>
+          </GlassPanel>
+        </div>
+      </div>
+
+      <GlassPanel className="h-fit">
+        <h2 className="text-xl font-black text-white">Registration Actions</h2>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Registered</p><p className="text-2xl font-black text-white">{registeredCount}</p></div>
+          <div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Checked in</p><p className="text-2xl font-black text-white">{event.checkedInCount}</p></div>
+          <div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Waitlist</p><p className="text-2xl font-black text-white">{waitlistCount}</p></div>
+          <div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Remaining</p><p className="text-2xl font-black text-white">{remainingSeats}</p></div>
         </div>
         <div className="mt-6 grid gap-3">
-          <Button type="button" onClick={register} disabled={!canRegister || registrationState === "registered"}>
-            Register
-          </Button>
-          <Button type="button" variant="ghost" onClick={joinWaitlist} disabled={registrationState === "waitlisted"}>
-            Join Waitlist
-          </Button>
-          <Button type="button" variant="ghost" onClick={cancelRegistration} disabled={registrationState === "none"}>
-            Cancel Registration
-          </Button>
-          <Button href={`/pass/${event.id}`} variant="secondary">
-            View Pass
-          </Button>
+          <NeonButton type="button" onClick={register} disabled={!canRegister || registrationState === "registered"}>Register</NeonButton>
+          <NeonButton type="button" variant="secondary" onClick={joinWaitlist} disabled={registrationState === "waitlisted"}>Join Waitlist</NeonButton>
+          <NeonButton type="button" variant="danger" onClick={cancelRegistration} disabled={registrationState === "none"}>Cancel</NeonButton>
+          <NeonButton href={`/pass/${event.id}`} variant="ghost">View Pass</NeonButton>
         </div>
-      </aside>
+      </GlassPanel>
     </div>
   );
 }
+

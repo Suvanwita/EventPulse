@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ErrorAlert, SuccessAlert } from "@/components/Alert";
-import { Button } from "@/components/Button";
 import { DataTable } from "@/components/DataTable";
 import { LoadingState } from "@/components/LoadingState";
-import { StatCard } from "@/components/StatCard";
+import { AccessResultPanel, GateFlowPanel, GlassPanel, ScannerCockpit } from "@/components/OpsUI";
+import { NeonButton } from "@/components/NeonButton";
 
 type ScanRecord = {
   id: string;
@@ -36,8 +35,8 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
   );
 
   const liveStats = useMemo(() => {
-    const allowed = recentScans.filter((scan) => scan.status === "ALLOWED" || scan.status === "Checked in").length;
-    const rejected = recentScans.filter((scan) => scan.status === "REJECTED").length;
+    const allowed = recentScans.filter((scan) => scan.status === "ACCESS GRANTED" || scan.status === "Checked in").length;
+    const rejected = recentScans.filter((scan) => scan.status.startsWith("ACCESS DENIED")).length;
     const waitlisted = recentScans.filter((scan) => scan.status === "Waitlisted").length;
 
     return [
@@ -55,11 +54,12 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
     window.setTimeout(() => {
       const allowed = normalizedToken.toLowerCase().includes("valid");
       const time = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date());
+      const reason = allowed ? "valid token" : ["expired token", "duplicate entry", "wrong event", "fake token"][Math.floor(Math.random() * 4)];
       const scanResult: ScanResult = {
         token: normalizedToken || "empty-token",
         gate,
         status: allowed ? "ALLOWED" : "REJECTED",
-        message: allowed ? "Pass accepted. Student may enter." : "Pass rejected. Token did not match the dummy validation rule.",
+        message: allowed ? "ACCESS GRANTED" : "ACCESS DENIED",
         time,
       };
 
@@ -70,7 +70,7 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
           attendee: allowed ? "Demo Student" : "Unknown",
           pass: scanResult.token,
           event: "Gate scan",
-          status: scanResult.status,
+          status: allowed ? "ACCESS GRANTED" : `ACCESS DENIED: ${reason}`,
           checkedInAt: time,
         },
         ...scans,
@@ -81,74 +81,67 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {liveStats.map((stat) => <StatCard key={stat.label} {...stat} />)}
-      </div>
+      <GateFlowPanel stats={liveStats} />
 
       <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-        <section className="rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
-          <h2 className="text-xl font-bold">QR token check</h2>
+        <ScannerCockpit>
+          <h2 className="text-xl font-black text-white">QR Access-Control Cockpit</h2>
+          <div className="mt-5 grid aspect-[16/10] place-items-center overflow-hidden rounded-2xl border border-cyan-300/18 bg-cyan-300/6">
+            <div className="relative h-52 w-52 rounded-full border border-cyan-300/25">
+              <div className="absolute inset-8 rounded-full border border-violet/25" />
+              <div className="absolute left-1/2 top-0 h-full w-px origin-bottom bg-cyan-300/60 shadow-glow" style={{ animation: "beacon 2s ease-in-out infinite" }} />
+            </div>
+          </div>
           <div className="mt-5 grid gap-4">
-            <label className="grid gap-2 text-sm font-semibold text-ink/75">
+            <label className="grid gap-2 text-sm font-bold text-white/75">
               QR token
               <input
                 value={token}
                 onChange={(event) => setToken(event.target.value)}
                 placeholder='Try "valid-123" for ALLOWED'
-                className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-ink outline-none transition placeholder:text-ink/35 focus:border-campus focus:ring-4 focus:ring-campus/10"
+                className="min-h-11 rounded-xl border border-cyan-200/14 bg-white/6 px-3 text-white outline-none transition placeholder:text-white/28 focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
               />
             </label>
-            <label className="grid gap-2 text-sm font-semibold text-ink/75">
+            <label className="grid gap-2 text-sm font-bold text-white/75">
               Gate name
               <select
                 value={gate}
                 onChange={(event) => setGate(event.target.value)}
-                className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-ink outline-none transition focus:border-campus focus:ring-4 focus:ring-campus/10"
+                className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none transition focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
               >
                 {gates.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            <Button type="button" onClick={scanToken} disabled={isScanning} className="w-full">
+            <NeonButton type="button" onClick={scanToken} disabled={isScanning} className="w-full">
               {isScanning ? "Scanning..." : "Scan"}
-            </Button>
+            </NeonButton>
             {isScanning ? <LoadingState label="Checking token" /> : null}
           </div>
-        </section>
+        </ScannerCockpit>
 
-        <section className="rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
-          <h2 className="text-xl font-bold">Scan result</h2>
-          <div className="mt-5">
-            {!result ? (
-              <div className="rounded-lg border border-dashed border-ink/15 bg-mist p-6 text-sm leading-6 text-ink/60">
-                Enter a QR token and scan it. Tokens containing <span className="font-bold text-ink">valid</span> are allowed; everything else is rejected.
-              </div>
-            ) : result.status === "ALLOWED" ? (
-              <SuccessAlert title="ALLOWED">
-                {result.message} Gate: {result.gate}. Time: {result.time}.
-              </SuccessAlert>
-            ) : (
-              <ErrorAlert title="REJECTED">
-                {result.message} Gate: {result.gate}. Time: {result.time}.
-              </ErrorAlert>
-            )}
-          </div>
+        <section className="grid gap-5">
+          {!result ? (
+            <AccessResultPanel />
+          ) : (
+            <AccessResultPanel status={result.status} message={result.message} detail={`Gate: ${result.gate}. Time: ${result.time}. Reason: ${result.status === "ALLOWED" ? "valid token" : "dummy token rejected"}.`} />
+          )}
           {result ? (
-            <div className="mt-5 grid gap-3 rounded-md bg-mist p-4 text-sm">
+            <GlassPanel className="grid gap-3 text-sm">
               <div className="flex justify-between gap-4">
-                <span className="text-ink/55">Token</span>
-                <span className="break-all font-bold text-ink">{result.token}</span>
+                <span className="text-white/55">Token</span>
+                <span className="break-all font-bold text-white">{result.token}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-ink/55">Decision</span>
-                <span className="font-bold text-ink">{result.status}</span>
+                <span className="text-white/55">Decision</span>
+                <span className="font-bold text-white">{result.status === "ALLOWED" ? "ACCESS GRANTED" : "ACCESS DENIED"}</span>
               </div>
-            </div>
+            </GlassPanel>
           ) : null}
         </section>
       </div>
 
       <section>
-        <h2 className="mb-4 text-xl font-bold">Recent scans</h2>
+        <h2 className="mb-4 text-xl font-black text-white">Recent scan activity</h2>
         <DataTable
           columns={["attendee", "pass", "event", "status", "checkedInAt"]}
           rows={recentScans.map(({ attendee, pass, event, status, checkedInAt }) => ({ attendee, pass, event, status, checkedInAt: checkedInAt || "-" }))}
@@ -158,4 +151,3 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
     </div>
   );
 }
-

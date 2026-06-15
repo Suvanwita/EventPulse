@@ -23,32 +23,32 @@ export function EventsClient({ events }: { events: EventRecord[] }) {
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-3 rounded-lg border border-ink/10 bg-white p-4 shadow-soft md:grid-cols-[1fr_180px_200px]">
-        <label className="grid gap-2 text-sm font-semibold text-ink/70">
+      <section className="grid gap-3 rounded-2xl border border-cyan-200/12 bg-panel p-4 shadow-soft backdrop-blur-xl md:grid-cols-[1fr_180px_200px]">
+        <label className="grid gap-2 text-sm font-bold text-white/70">
           Search
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search title, venue, or category"
-            className="min-h-11 rounded-md border border-ink/15 px-3 outline-none focus:border-campus focus:ring-4 focus:ring-campus/10"
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-white/6 px-3 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
           />
         </label>
-        <label className="grid gap-2 text-sm font-semibold text-ink/70">
+        <label className="grid gap-2 text-sm font-bold text-white/70">
           Status
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="min-h-11 rounded-md border border-ink/15 bg-white px-3 capitalize outline-none focus:border-campus focus:ring-4 focus:ring-campus/10"
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 capitalize text-white outline-none focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
           >
             {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </label>
-        <label className="grid gap-2 text-sm font-semibold text-ink/70">
+        <label className="grid gap-2 text-sm font-bold text-white/70">
           Category
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            className="min-h-11 rounded-md border border-ink/15 bg-white px-3 outline-none focus:border-campus focus:ring-4 focus:ring-campus/10"
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
           >
             {categories.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>

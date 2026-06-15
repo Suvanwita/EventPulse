@@ -6,7 +6,7 @@ import { EventsClient } from "./EventsClient";
 export default function EventsPage() {
   return (
     <AppShell>
-      <PageHeader title="Campus events" eyebrow="Live availability" />
+      <PageHeader title="Campus Event Radar" eyebrow="Live availability" />
       <EventsClient events={events} />
     </AppShell>
   );

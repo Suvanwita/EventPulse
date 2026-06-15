@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { CapacityBar } from "@/components/CapacityBar";
 import { DataTable } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
+import { ActivityTimeline, CapacityRadar, GlassPanel, MetricOrb, QueueFlowLane } from "@/components/OpsUI";
 import { StatusBadge } from "@/components/StatusBadge";
 import { events } from "@/lib/data";
 import { registrations } from "@/data/registrations";
@@ -21,45 +20,48 @@ export default async function OrganizerEventPage({ params }: { params: Promise<{
 
   return (
     <AppShell sidebar>
-      <PageHeader title={event.title} eyebrow="Event control">
+      <PageHeader title="Event Control Room" eyebrow={event.title}>
         <StatusBadge status={event.status} />
       </PageHeader>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <StatCard label="Registered" value={String(event.registeredCount)} delta="Total registrations" />
-        <StatCard label="Checked in" value={String(event.checkedInCount)} delta="Scanned at entry" />
-        <StatCard label="Waitlist" value={String(event.waitlistCount)} delta="Queued students" />
-        <StatCard label="Remaining seats" value={String(remainingSeats)} delta="Capacity available" />
-        <StatCard label="Entry rate" value={`${entryRate}%`} delta="Placeholder metric" />
-        <StatCard label="Capacity" value={String(event.capacity)} delta="Venue limit" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <MetricOrb label="Registered" value={String(event.registeredCount)} />
+        <MetricOrb label="Checked in" value={String(event.checkedInCount)} tone="lime" />
+        <MetricOrb label="Waitlist" value={String(event.waitlistCount)} tone="violet" />
+        <MetricOrb label="Remaining" value={String(remainingSeats)} tone="amber" />
+        <MetricOrb label="Entry rate" value={`${entryRate}%`} tone="cyan" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
         <section className="grid gap-6">
-          <div>
-            <h2 className="mb-4 text-xl font-bold">Registrations</h2>
+          <GlassPanel>
+            <h2 className="mb-4 text-xl font-black text-white">Registrations</h2>
             <DataTable columns={["attendee", "pass", "seat", "status"]} rows={registeredRows.map(({ attendee, pass, seat, status }) => ({ attendee, pass, seat, status }))} />
-          </div>
-          <div>
-            <h2 className="mb-4 text-xl font-bold">Waitlist</h2>
+          </GlassPanel>
+          <GlassPanel>
+            <h2 className="mb-4 text-xl font-black text-white">Waitlist Queue Lane</h2>
+            <QueueFlowLane label="Active queue" count={event.waitlistCount} />
+            <div className="mt-5">
             <DataTable columns={["attendee", "pass", "status"]} rows={waitlistRows.map(({ attendee, pass, status }) => ({ attendee, pass, status }))} />
-          </div>
-          <div>
-            <h2 className="mb-4 text-xl font-bold">Check-ins</h2>
-            <DataTable columns={["attendee", "pass", "checkedInAt", "status"]} rows={checkInRows.map(({ attendee, pass, checkedInAt, status }) => ({ attendee, pass, checkedInAt, status }))} />
-          </div>
+            </div>
+          </GlassPanel>
+          <ActivityTimeline items={checkInRows.map(({ attendee, checkedInAt, status }) => ({ title: attendee, meta: `${status} / ${checkedInAt}`, tone: "lime" }))} />
         </section>
-        <aside className="rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
-          <h2 className="text-xl font-bold">Live capacity stats</h2>
-          <div className="mt-5"><CapacityBar current={event.registeredCount} capacity={event.capacity} /></div>
+        <aside className="grid h-fit gap-6">
+          <CapacityRadar current={event.registeredCount} capacity={event.capacity} />
+          <GlassPanel>
+          <h2 className="text-xl font-black text-white">Gate Status Cards</h2>
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Registered</p><p className="text-2xl font-bold">{event.registeredCount}</p></div>
-            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Checked in</p><p className="text-2xl font-bold">{event.checkedInCount}</p></div>
-            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Waitlist</p><p className="text-2xl font-bold">{event.waitlistCount}</p></div>
-            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Remaining</p><p className="text-2xl font-bold">{remainingSeats}</p></div>
+            {["Main", "North", "Overflow", "Staff"].map((gate, index) => (
+              <div key={gate} className="rounded-xl border border-white/10 bg-white/6 p-4">
+                <p className="text-sm text-white/55">{gate}</p>
+                <p className="mt-1 text-xl font-black text-white">{index === 2 ? "Queue" : "Open"}</p>
+              </div>
+            ))}
           </div>
-          <div className="mt-5 rounded-md border border-dashed border-campus/30 bg-mist p-4">
-            <p className="text-sm text-ink/55">Entry rate placeholder</p>
-            <p className="mt-1 text-2xl font-bold">{entryRate}%</p>
+          <div className="mt-5 rounded-xl border border-dashed border-cyan-300/25 bg-cyan-300/8 p-4">
+            <p className="text-sm text-white/55">Entry rate placeholder</p>
+            <p className="mt-1 text-2xl font-black text-white">{entryRate}%</p>
           </div>
+          </GlassPanel>
         </aside>
       </div>
     </AppShell>

@@ -8,10 +8,10 @@ export function DataTable({ columns, rows, emptyMessage = "No records to show." 
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-ink/10 bg-white shadow-soft">
+    <div className="overflow-hidden rounded-2xl border border-cyan-200/12 bg-panel shadow-soft backdrop-blur-xl">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="bg-mist text-xs uppercase tracking-[0.16em] text-ink/55">
+          <thead className="bg-cyan-300/8 text-xs uppercase tracking-[0.16em] text-cyan-100/60">
             <tr>
               {columns.map((column) => (
                 <th key={column} className="px-4 py-3 font-bold">
@@ -20,11 +20,11 @@ export function DataTable({ columns, rows, emptyMessage = "No records to show." 
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink/10">
+          <tbody className="divide-y divide-white/10">
             {rows.map((row, index) => (
-              <tr key={index} className="hover:bg-mist/60">
+              <tr key={index} className="transition hover:bg-cyan-300/6">
                 {columns.map((column) => (
-                  <td key={column} className="px-4 py-4 text-ink/75">
+                  <td key={column} className="px-4 py-4 text-white/70">
                     {row[column]}
                   </td>
                 ))}

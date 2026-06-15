@@ -12,7 +12,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   return (
     <AppShell>
-      <PageHeader title={event.title} eyebrow="Event details" />
+      <PageHeader title="Event Signal Panel" eyebrow={event.title} />
       <EventDetailClient event={event} venue={venue} />
     </AppShell>
   );
