@@ -6,13 +6,16 @@ import { useState } from "react";
 import { AuthCard } from "@/components/AuthCard";
 import { Button } from "@/components/Button";
 import { FormInput } from "@/components/FormInput";
+import { LoadingState } from "@/components/LoadingState";
 import { roleHome, type Role } from "@/lib/roles";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [role, setRole] = useState<Exclude<Role, "ADMIN">>("STUDENT");
+  const [isLoading, setIsLoading] = useState(false);
 
   function register() {
+    setIsLoading(true);
     window.localStorage.setItem("eventpulse-role", role);
     router.push(roleHome[role]);
   }
@@ -35,7 +38,8 @@ export default function RegisterPage() {
             <option value="VOLUNTEER">VOLUNTEER</option>
           </select>
         </label>
-        <Button type="button" onClick={register} className="mt-2 w-full">Register</Button>
+        <Button type="button" onClick={register} disabled={isLoading} className="mt-2 w-full">{isLoading ? "Creating account..." : "Register"}</Button>
+        {isLoading ? <LoadingState label="Preparing workspace" /> : null}
       </form>
       <p className="mt-5 text-center text-sm text-ink/60">
         Already registered? <Link className="font-semibold text-campus" href="/login">Log in</Link>

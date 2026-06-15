@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmptyState } from "@/components/EmptyState";
 import { EventCard } from "@/components/EventCard";
 import type { EventRecord } from "@/lib/data";
 
@@ -59,9 +60,7 @@ export function EventsClient({ events }: { events: EventRecord[] }) {
           {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
         </div>
       ) : (
-        <div className="rounded-lg border border-ink/10 bg-white p-8 text-center text-ink/60 shadow-soft">
-          No events match those filters.
-        </div>
+        <EmptyState title="No events match those filters">Try a different search term, status, or category.</EmptyState>
       )}
     </div>
   );

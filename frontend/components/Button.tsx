@@ -14,7 +14,7 @@ const styles = {
 };
 
 export function Button({ href, children, variant = "primary", className = "", ...props }: Props) {
-  const classes = `inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition ${styles[variant]} ${className}`;
+  const classes = `inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${styles[variant]} ${className}`;
 
   if (href) {
     return (
@@ -30,4 +30,3 @@ export function Button({ href, children, variant = "primary", className = "", ..
     </button>
   );
 }
-

@@ -1,6 +1,12 @@
+import { EmptyState } from "./EmptyState";
+
 type Row = Record<string, string | number>;
 
-export function DataTable({ columns, rows }: { columns: string[]; rows: Row[] }) {
+export function DataTable({ columns, rows, emptyMessage = "No records to show." }: { columns: string[]; rows: Row[]; emptyMessage?: string }) {
+  if (rows.length === 0) {
+    return <EmptyState title="Nothing here yet">{emptyMessage}</EmptyState>;
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-ink/10 bg-white shadow-soft">
       <div className="overflow-x-auto">
@@ -30,4 +36,3 @@ export function DataTable({ columns, rows }: { columns: string[]; rows: Row[] })
     </div>
   );
 }
-
