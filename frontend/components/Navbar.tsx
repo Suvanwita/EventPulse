@@ -1,14 +1,20 @@
-import Link from "next/link";
-import { Button } from "./Button";
+"use client";
 
-const links = [
-  { href: "/events", label: "Events" },
-  { href: "/organizer/dashboard", label: "Organizer" },
-  { href: "/volunteer/scan", label: "Scan" },
-  { href: "/admin/analytics", label: "Admin" },
-];
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Button } from "./Button";
+import { roleNavigation, type Role } from "@/lib/roles";
 
 export function Navbar() {
+  const [role, setRole] = useState<Role>("STUDENT");
+
+  useEffect(() => {
+    const storedRole = window.localStorage.getItem("eventpulse-role") as Role | null;
+    if (storedRole && storedRole in roleNavigation) setRole(storedRole);
+  }, []);
+
+  const links = roleNavigation[role];
+
   return (
     <header className="sticky top-0 z-20 border-b border-ink/10 bg-white/85 backdrop-blur">
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
@@ -33,4 +39,3 @@ export function Navbar() {
     </header>
   );
 }
-
