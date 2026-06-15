@@ -1,13 +1,20 @@
-import Link from "next/link";
+import { Button } from "./Button";
 import { CapacityBar } from "./CapacityBar";
 import { StatusBadge } from "./StatusBadge";
-import type { events } from "@/lib/data";
+import type { EventRecord } from "@/lib/data";
 
-type Event = (typeof events)[number];
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
 
-export function EventCard({ event }: { event: Event }) {
+export function EventCard({ event }: { event: EventRecord }) {
   return (
-    <Link href={`/events/${event.id}`} className="group overflow-hidden rounded-lg border border-ink/10 bg-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg">
+    <article className="group overflow-hidden rounded-lg border border-ink/10 bg-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="h-32" style={{ background: event.image }} />
       <div className="grid gap-4 p-5">
         <div className="flex items-start justify-between gap-4">
@@ -17,10 +24,12 @@ export function EventCard({ event }: { event: Event }) {
           </div>
           <StatusBadge status={event.status} />
         </div>
-        <p className="text-sm text-ink/60">{event.date} · {event.time} · {event.venue}</p>
-        <CapacityBar current={event.checkedIn} capacity={event.capacity} />
+        <p className="text-sm text-ink/60">{formatDateTime(event.startTime)} · {event.venue}</p>
+        <CapacityBar current={event.registeredCount} capacity={event.capacity} />
+        <Button href={`/events/${event.id}`} variant="ghost" className="w-full">
+          View Details
+        </Button>
       </div>
-    </Link>
+    </article>
   );
 }
-

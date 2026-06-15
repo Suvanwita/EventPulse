@@ -3,6 +3,15 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { events } from "@/lib/data";
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export default async function PassPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const event = events.find((item) => item.id === eventId);
@@ -18,11 +27,10 @@ export default async function PassPage({ params }: { params: Promise<{ eventId: 
           ))}
         </div>
         <h2 className="mt-6 text-2xl font-bold">{event.title}</h2>
-        <p className="mt-2 text-ink/60">{event.date} · {event.time}</p>
+        <p className="mt-2 text-ink/60">{formatDateTime(event.startTime)}</p>
         <p className="mt-1 text-ink/60">{event.venue}</p>
         <div className="mt-6 rounded-md bg-mist p-4 text-sm font-bold tracking-[0.18em] text-ink/70">EP-{event.id.toUpperCase().slice(0, 8)}</div>
       </div>
     </AppShell>
   );
 }
-

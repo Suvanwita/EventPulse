@@ -20,14 +20,13 @@ export default async function OrganizerEventPage({ params }: { params: Promise<{
         <DataTable columns={["attendee", "pass", "event", "status"]} rows={scans} />
         <aside className="rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
           <h2 className="text-xl font-bold">Capacity monitor</h2>
-          <div className="mt-5"><CapacityBar current={event.checkedIn} capacity={event.capacity} /></div>
+          <div className="mt-5"><CapacityBar current={event.checkedInCount} capacity={event.capacity} /></div>
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Waitlist</p><p className="text-2xl font-bold">{event.waitlist}</p></div>
-            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Remaining</p><p className="text-2xl font-bold">{event.capacity - event.checkedIn}</p></div>
+            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Waitlist</p><p className="text-2xl font-bold">{event.waitlistCount}</p></div>
+            <div className="rounded-md bg-mist p-4"><p className="text-sm text-ink/55">Remaining</p><p className="text-2xl font-bold">{event.capacity - event.registeredCount}</p></div>
           </div>
         </aside>
       </div>
     </AppShell>
   );
 }
-

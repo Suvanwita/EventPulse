@@ -33,11 +33,11 @@ export default function Home() {
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-campus">Now tracking</p>
-              <h2 className="text-2xl font-bold">Founders Night</h2>
+              <h2 className="text-2xl font-bold">Open Mic Night</h2>
             </div>
             <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200">Filling</span>
           </div>
-          <CapacityBar current={214} capacity={280} />
+          <CapacityBar current={138} capacity={140} />
           <div className="mt-6 grid grid-cols-2 gap-3">
             {features.map((feature) => (
               <div key={feature} className="rounded-md bg-mist p-4 text-sm font-semibold text-ink/75">
@@ -51,9 +51,8 @@ export default function Home() {
         {stats.map((stat) => <StatCard key={stat.label} {...stat} />)}
       </section>
       <section className="mt-12 grid gap-5 md:grid-cols-3">
-        {events.map((event) => <EventCard key={event.id} event={event} />)}
+        {events.slice(0, 3).map((event) => <EventCard key={event.id} event={event} />)}
       </section>
     </AppShell>
   );
 }
-

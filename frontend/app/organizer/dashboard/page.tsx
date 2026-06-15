@@ -16,11 +16,10 @@ export default function OrganizerDashboardPage() {
       </div>
       <div className="mt-8">
         <DataTable
-          columns={["title", "venue", "checkedIn", "capacity", "waitlist"]}
-          rows={events.map(({ title, venue, checkedIn, capacity, waitlist }) => ({ title, venue, checkedIn, capacity, waitlist }))}
+          columns={["title", "venue", "checkedInCount", "capacity", "waitlistCount"]}
+          rows={events.map(({ title, venue, checkedInCount, capacity, waitlistCount }) => ({ title, venue, checkedInCount, capacity, waitlistCount }))}
         />
       </div>
     </AppShell>
   );
 }
-
