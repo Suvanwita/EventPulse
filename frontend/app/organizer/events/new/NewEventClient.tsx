@@ -8,6 +8,7 @@ import { NeonButton } from "@/components/NeonButton";
 import { GlassPanel } from "@/components/OpsUI";
 import { get, post } from "@/lib/api";
 import { buildEventPayload, toUiVenue, unwrapData } from "@/lib/adapters";
+import { useAutocomplete } from "@/lib/useAutocomplete";
 import type { VenueRecord } from "@/lib/data";
 
 const initialForm = {
@@ -29,6 +30,9 @@ export function NewEventClient({ fallbackVenues }: { fallbackVenues: VenueRecord
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const selectedVenue = venues.find((venue) => venue.id === form.venueId);
+  const [venueSearch, setVenueSearch] = useState("");
+  const { suggestions: venueSuggestions } = useAutocomplete(venueSearch, { limit: 6 });
 
   useEffect(() => {
     let active = true;
@@ -91,6 +95,33 @@ export function NewEventClient({ fallbackVenues }: { fallbackVenues: VenueRecord
               {venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name} / {venue.room}</option>)}
             </select>
           </label>
+          <label className="relative mt-4 grid gap-2 text-sm font-bold text-white/75">
+            Venue autocomplete
+            <input
+              value={venueSearch}
+              onChange={(event) => setVenueSearch(event.target.value)}
+              placeholder={selectedVenue ? selectedVenue.name : "Search venue or zone"}
+              className="min-h-11 rounded-xl border border-cyan-200/14 bg-white/6 px-3 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
+            />
+            {venueSuggestions.filter((suggestion: any) => ["VENUE", "ZONE"].includes(suggestion.type)).length > 0 ? (
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 grid gap-2 rounded-2xl border border-violet/20 bg-void/95 p-3 shadow-violet backdrop-blur-xl">
+                {venueSuggestions.filter((suggestion: any) => ["VENUE", "ZONE"].includes(suggestion.type)).map((suggestion: any, index) => (
+                  <button
+                    key={`${suggestion.label}-${index}`}
+                    type="button"
+                    onClick={() => {
+                      updateField("venueId", suggestion.metadata?.venueId || "");
+                      setVenueSearch(suggestion.label);
+                    }}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-left transition hover:border-violet/35 hover:bg-violet/10"
+                  >
+                    <span className="font-black text-white">{suggestion.label}</span>
+                    <span className="rounded-full border border-violet/20 bg-violet/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-violet-100">{suggestion.type}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </label>
         </GlassPanel>
         <GlassPanel>
           <h2 className="mb-5 text-xl font-black text-white">Capacity Rules</h2>
@@ -123,4 +154,3 @@ export function NewEventClient({ fallbackVenues }: { fallbackVenues: VenueRecord
     </form>
   );
 }
-

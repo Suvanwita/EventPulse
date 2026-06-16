@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ErrorAlert } from "@/components/Alert";
 import { EmptyState } from "@/components/EmptyState";
 import { EventCard } from "@/components/EventCard";
@@ -8,15 +9,18 @@ import { LoadingState } from "@/components/LoadingState";
 import { GlassPanel, StatusBeacon } from "@/components/OpsUI";
 import { get } from "@/lib/api";
 import { toUiEvent, unwrapData } from "@/lib/adapters";
+import { useAutocomplete } from "@/lib/useAutocomplete";
 import type { EventRecord } from "@/lib/data";
 
 export function EventsClient({ events: fallbackEvents }: { events: EventRecord[] }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
   const [events, setEvents] = useState<EventRecord[]>(fallbackEvents);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const { suggestions } = useAutocomplete(query);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -64,7 +68,7 @@ export function EventsClient({ events: fallbackEvents }: { events: EventRecord[]
   return (
     <div className="grid gap-6">
       <section className="grid gap-3 rounded-2xl border border-cyan-200/12 bg-panel p-4 shadow-soft backdrop-blur-xl md:grid-cols-[1fr_180px_200px]">
-        <label className="grid gap-2 text-sm font-bold text-white/70">
+        <label className="relative grid gap-2 text-sm font-bold text-white/70">
           Search
           <input
             value={query}
@@ -72,6 +76,28 @@ export function EventsClient({ events: fallbackEvents }: { events: EventRecord[]
             placeholder="Search title, venue, or category"
             className="min-h-11 rounded-xl border border-cyan-200/14 bg-white/6 px-3 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10"
           />
+          {suggestions.length > 0 ? (
+            <div className="absolute left-0 right-0 top-full z-30 mt-2 grid gap-2 rounded-2xl border border-cyan-200/16 bg-void/95 p-3 shadow-glow backdrop-blur-xl">
+              {suggestions.map((suggestion: any, index) => (
+                <button
+                  key={`${suggestion.type}-${suggestion.label}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    if (suggestion.type === "EVENT" && suggestion.metadata?.eventId) {
+                      router.push(`/events/${suggestion.metadata.eventId}`);
+                      return;
+                    }
+
+                    setQuery(suggestion.label);
+                  }}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/10"
+                >
+                  <span className="font-black text-white">{suggestion.label}</span>
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">{suggestion.type}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </label>
         <label className="grid gap-2 text-sm font-bold text-white/70">
           Status

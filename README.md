@@ -157,6 +157,8 @@ Registration, cancellation, waitlist promotion, no-show release, and QR scans ar
 
 Fenwick Tree is used for efficient time-range check-in analytics over bucketed event entry data. The optimized time-range path powers `GET /api/analytics/events/:id/time-range` without replacing PostgreSQL as the source of truth.
 
+Trie is used for fast autocomplete across events, venues, zones, and categories.
+
 ## Workers
 
 Run manually for now:
