@@ -159,6 +159,8 @@ Fenwick Tree is used for efficient time-range check-in analytics over bucketed e
 
 Trie is used for fast autocomplete across events, venues, zones, and categories.
 
+Graph utilities are used to model venue zones and gate loads, enabling least-crowded gate recommendations and simple crowd-flow routing.
+
 ## Workers
 
 Run manually for now:

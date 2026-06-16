@@ -15,16 +15,18 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
   const [checkInRows, setCheckInRows] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>({});
   const [timeRangeAnalytics, setTimeRangeAnalytics] = useState<any>(null);
+  const [gateFlow, setGateFlow] = useState<any>(null);
   const [flowWindow, setFlowWindow] = useState<"15" | "30" | "full">("15");
   const [socketStatus, setSocketStatus] = useState("Live Sync Offline");
   const [error, setError] = useState("");
 
   async function refresh() {
-    const [eventPayload, waitlistPayload, checkinsPayload, analyticsPayload] = await Promise.all([
+    const [eventPayload, waitlistPayload, checkinsPayload, analyticsPayload, gateFlowPayload] = await Promise.all([
       get(`/api/events/${event.id}`),
       get(`/api/events/${event.id}/waitlist`).catch(() => null),
       get(`/api/events/${event.id}/checkins`).catch(() => null),
       get(`/api/analytics/events/${event.id}`).catch(() => null),
+      get(`/api/events/${event.id}/gates/flow`).catch(() => null),
     ]);
     const details = unwrapData(eventPayload, "event") || unwrapData(eventPayload);
     setEvent(toUiEvent(details));
@@ -33,6 +35,7 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
     setWaitlistRows(Array.isArray(waitlist) ? waitlist : []);
     setCheckInRows(Array.isArray(checkins) ? checkins : []);
     setAnalytics(unwrapData(analyticsPayload) || {});
+    setGateFlow(unwrapData(gateFlowPayload) || null);
   }
 
   async function loadTimeRange(windowMode: "15" | "30" | "full") {
@@ -208,6 +211,31 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
               <p className="mt-1 text-2xl font-black text-white">{entryRate}%</p>
               <p className="mt-2 text-sm text-white/50">Peak hour: {analytics.peakCheckinHour?.hour ? new Date(analytics.peakCheckinHour.hour).toLocaleTimeString() : "-"}</p>
             </div>
+          </GlassPanel>
+          <GlassPanel>
+            <h2 className="text-xl font-black text-white">Gate Load Map</h2>
+            <p className="mt-2 text-sm leading-6 text-white/55">{gateFlow?.reason || "Gate flow route sync pending."}</p>
+            <div className="mt-5 grid gap-3">
+              {(gateFlow?.gates || []).map((gate: any) => (
+                <div key={gate.id} className={`relative rounded-xl border p-4 ${gateFlow?.recommendedGate?.id === gate.id ? "border-lime/35 bg-lime/10 shadow-[0_0_24px_rgba(163,230,53,0.12)]" : "border-white/10 bg-white/5"}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-black text-white">{gate.name}</p>
+                      <p className="text-xs text-white/50">{gate.zone}</p>
+                    </div>
+                    <p className="text-2xl font-black text-white">{gate.load}</p>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-white/10">
+                    <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${Math.min(100, gate.load * 12 + gate.distanceWeight * 8)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {gateFlow?.routeToVenue?.path?.length ? (
+              <p className="mt-4 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm font-bold text-cyan-100">
+                Route: {gateFlow.routeToVenue.path.join(" -> ")}
+              </p>
+            ) : null}
           </GlassPanel>
         </aside>
       </div>

@@ -35,6 +35,7 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
   const [result, setResult] = useState<ScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [eventId, setEventId] = useState("");
+  const [gateFlow, setGateFlow] = useState<any>(null);
   const [socketStatus, setSocketStatus] = useState("Live Sync Offline");
   const [recentScans, setRecentScans] = useState<ScanRecord[]>(
     initialScans.map((scan) => ({ ...scan, checkedInAt: scan.checkedInAt || "-" })),
@@ -99,6 +100,9 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
         }
       })
       .catch(() => undefined);
+    get(`/api/events/${eventId}/gates/flow`)
+      .then((payload) => setGateFlow(unwrapData(payload)))
+      .catch(() => setGateFlow(null));
 
     return () => {
       socket.emit("leave-event-room", { eventId });
@@ -182,6 +186,25 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
     <div className="grid gap-6">
       <GateFlowPanel stats={liveStats} />
       <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100/60">{socketStatus}</p>
+      <GlassPanel>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black text-white">Gate Flow Panel</h2>
+            <p className="mt-2 text-sm leading-6 text-white/55">{gateFlow?.reason || "Select an event ID to sync gate load recommendations."}</p>
+          </div>
+          <span className="rounded-full border border-lime/25 bg-lime/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-lime">
+            {gateFlow?.recommendedGate?.name || "No gate"}
+          </span>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {(gateFlow?.gates || []).map((gate: any) => (
+            <div key={gate.id} className={`rounded-xl border p-4 ${gateFlow?.recommendedGate?.id === gate.id ? "border-lime/35 bg-lime/10" : "border-white/10 bg-white/5"}`}>
+              <p className="font-black text-white">{gate.name}</p>
+              <p className="mt-1 text-sm text-white/55">Load {gate.load} / distance {gate.distanceWeight}</p>
+            </div>
+          ))}
+        </div>
+      </GlassPanel>
 
       <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
         <ScannerCockpit>

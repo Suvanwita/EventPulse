@@ -33,6 +33,7 @@ export function EventDetailClient({ event, venue }: { event: EventRecord; venue?
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [gateRecommendation, setGateRecommendation] = useState<any>(null);
 
   async function refresh() {
     setError("");
@@ -72,6 +73,12 @@ export function EventDetailClient({ event, venue }: { event: EventRecord; venue?
     return () => {
       active = false;
     };
+  }, [event.id]);
+
+  useEffect(() => {
+    get(`/api/events/${event.id}/gates/recommendation`)
+      .then((payload) => setGateRecommendation(unwrapData(payload)))
+      .catch(() => setGateRecommendation(null));
   }, [event.id]);
 
   const remainingSeats = Math.max(currentEvent.capacity - registeredCount, 0);
@@ -156,6 +163,29 @@ export function EventDetailClient({ event, venue }: { event: EventRecord; venue?
             </div>
           </GlassPanel>
         </div>
+        <GlassPanel>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-white">Suggested Entry Gate</h2>
+              <p className="mt-2 text-sm leading-6 text-white/55">{gateRecommendation?.reason || "Gate recommendation will appear once venue flow syncs."}</p>
+            </div>
+            <StatusBeacon status="live" label={gateRecommendation?.recommendedGate?.name || "syncing"} />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {(gateRecommendation?.gates || []).map((gate: any) => (
+              <div key={gate.id} className={`rounded-xl border p-4 ${gateRecommendation?.recommendedGate?.id === gate.id ? "border-lime/35 bg-lime/10" : "border-white/10 bg-white/5"}`}>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">{gate.name}</p>
+                <p className="mt-1 text-2xl font-black text-white">{gate.load}</p>
+                <p className="text-xs text-white/45">load / distance {gate.distanceWeight}</p>
+              </div>
+            ))}
+          </div>
+          {gateRecommendation?.route?.path?.length ? (
+            <p className="mt-4 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm font-bold text-cyan-100">
+              Route: {gateRecommendation.route.path.join(" -> ")}
+            </p>
+          ) : null}
+        </GlassPanel>
       </div>
 
       <GlassPanel className="h-fit">
