@@ -5,6 +5,7 @@ import { ErrorAlert } from "@/components/Alert";
 import { DataTable } from "@/components/DataTable";
 import { ActivityTimeline, AnalyticsMatrix, CapacityRadar, GlassPanel, MetricOrb, QueueFlowLane } from "@/components/OpsUI";
 import { get } from "@/lib/api";
+import { post, patch, del } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { toUiEvent, unwrapData } from "@/lib/adapters";
 import type { EventRecord } from "@/lib/data";
@@ -16,17 +17,26 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
   const [analytics, setAnalytics] = useState<any>({});
   const [timeRangeAnalytics, setTimeRangeAnalytics] = useState<any>(null);
   const [gateFlow, setGateFlow] = useState<any>(null);
+  const [crewList, setCrewList] = useState<any[]>([]);
+  const [crewForm, setCrewForm] = useState({
+    userId: "",
+    gateName: "Gate A",
+    accessType: "EVENT_ORGANIZER",
+    note: "",
+  });
+  const [crewDrafts, setCrewDrafts] = useState<Record<string, any>>({});
   const [flowWindow, setFlowWindow] = useState<"15" | "30" | "full">("15");
   const [socketStatus, setSocketStatus] = useState("Live Sync Offline");
   const [error, setError] = useState("");
 
   async function refresh() {
-    const [eventPayload, waitlistPayload, checkinsPayload, analyticsPayload, gateFlowPayload] = await Promise.all([
+    const [eventPayload, waitlistPayload, checkinsPayload, analyticsPayload, gateFlowPayload, crewPayload] = await Promise.all([
       get(`/api/events/${event.id}`),
       get(`/api/events/${event.id}/waitlist`).catch(() => null),
       get(`/api/events/${event.id}/checkins`).catch(() => null),
       get(`/api/analytics/events/${event.id}`).catch(() => null),
       get(`/api/events/${event.id}/gates/flow`).catch(() => null),
+      get(`/api/events/${event.id}/crew`).catch(() => null),
     ]);
     const details = unwrapData(eventPayload, "event") || unwrapData(eventPayload);
     setEvent(toUiEvent(details));
@@ -36,6 +46,46 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
     setCheckInRows(Array.isArray(checkins) ? checkins : []);
     setAnalytics(unwrapData(analyticsPayload) || {});
     setGateFlow(unwrapData(gateFlowPayload) || null);
+    const crew = unwrapData(crewPayload, "crew") || [];
+    if (Array.isArray(crew)) {
+      setCrewList(crew);
+      setCrewDrafts((current) => ({
+        ...Object.fromEntries(
+          crew.map((access: any) => [
+            access.id,
+            {
+              gateName: access.gateName,
+              accessType: access.accessType,
+              note: access.note || "",
+              isActive: access.isActive,
+            },
+          ])
+        ),
+        ...current,
+      }));
+    }
+  }
+
+  async function addCrewAccess(submitEvent: React.FormEvent<HTMLFormElement>) {
+    submitEvent.preventDefault();
+    await post(`/api/events/${event.id}/crew`, crewForm);
+    setCrewForm({
+      userId: "",
+      gateName: "Gate A",
+      accessType: "EVENT_ORGANIZER",
+      note: "",
+    });
+    await refresh();
+  }
+
+  async function saveCrewAccess(crewAccessId: string) {
+    await patch(`/api/events/${event.id}/crew/${crewAccessId}`, crewDrafts[crewAccessId]);
+    await refresh();
+  }
+
+  async function revokeCrewAccess(crewAccessId: string) {
+    await del(`/api/events/${event.id}/crew/${crewAccessId}`);
+    await refresh();
   }
 
   async function loadTimeRange(windowMode: "15" | "30" | "full") {
@@ -107,6 +157,8 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
     socket.on("checkin-updated", addActivity);
     socket.on("entry-rate-updated", refresh);
     socket.on("no-show-released", refresh);
+    socket.on("crew-access-updated", refresh);
+    socket.on("special-entry-used", refresh);
     if (socket.connected) connected();
 
     return () => {
@@ -119,6 +171,8 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
       socket.off("checkin-updated", addActivity);
       socket.off("entry-rate-updated", refresh);
       socket.off("no-show-released", refresh);
+      socket.off("crew-access-updated", refresh);
+      socket.off("special-entry-used", refresh);
     };
   }, [event.id]);
 
@@ -239,6 +293,82 @@ export function OrganizerEventClient({ fallbackEvent, fallbackRegistrations }: {
           </GlassPanel>
         </aside>
       </div>
+      <GlassPanel className="mt-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black text-white">Event Crew Access</h2>
+            <p className="mt-2 text-sm leading-6 text-white/55">Assign students event-specific organizer, crew, performer, speaker, helper, or VIP access without changing their global role.</p>
+          </div>
+          <span className="rounded-full border border-violet/25 bg-violet/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-violet-100">{crewList.filter((access) => access.isActive).length} active</span>
+        </div>
+        <form className="mt-5 grid gap-3 lg:grid-cols-[1.4fr_1fr_1fr_1.6fr_auto]" onSubmit={addCrewAccess}>
+          <input
+            value={crewForm.userId}
+            onChange={(inputEvent) => setCrewForm((current) => ({ ...current, userId: inputEvent.target.value }))}
+            placeholder="Student email or ID"
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-white/6 px-3 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/45"
+            required
+          />
+          <select
+            value={crewForm.gateName}
+            onChange={(inputEvent) => setCrewForm((current) => ({ ...current, gateName: inputEvent.target.value }))}
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none focus:border-cyan-300/45"
+          >
+            {["Gate A", "Gate B", "Gate C", "Main Gate", "North Entry", "Overflow Desk"].map((gate) => <option key={gate} value={gate}>{gate}</option>)}
+          </select>
+          <select
+            value={crewForm.accessType}
+            onChange={(inputEvent) => setCrewForm((current) => ({ ...current, accessType: inputEvent.target.value }))}
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none focus:border-cyan-300/45"
+          >
+            {["EVENT_ORGANIZER", "CREW", "PERFORMER", "SPEAKER", "VOLUNTEER_HELPER", "VIP_ENTRY"].map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+          <input
+            value={crewForm.note}
+            onChange={(inputEvent) => setCrewForm((current) => ({ ...current, note: inputEvent.target.value }))}
+            placeholder="Optional volunteer note"
+            className="min-h-11 rounded-xl border border-cyan-200/14 bg-white/6 px-3 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/45"
+          />
+          <button type="submit" className="rounded-xl border border-lime/30 bg-lime/10 px-4 py-2 text-sm font-black uppercase tracking-[0.12em] text-lime">Add</button>
+        </form>
+        <div className="mt-6 grid gap-4">
+          {crewList.map((access) => (
+            <div key={access.id} className={`rounded-2xl border p-4 ${access.isActive ? "border-violet/25 bg-violet/10" : "border-white/10 bg-white/5 opacity-70"}`}>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-lg font-black text-white">{access.user?.name || access.userId}</p>
+                  <p className="text-sm text-white/55">{access.user?.email || "student"}</p>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em] ${access.isActive ? "border-lime/25 bg-lime/10 text-lime" : "border-rose-300/25 bg-rose-400/10 text-rose-100"}`}>{access.isActive ? "active" : "revoked"}</span>
+              </div>
+              <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_1.5fr_auto_auto]">
+                <select
+                  value={crewDrafts[access.id]?.gateName || access.gateName}
+                  onChange={(inputEvent) => setCrewDrafts((current) => ({ ...current, [access.id]: { ...(current[access.id] || {}), gateName: inputEvent.target.value } }))}
+                  className="min-h-10 rounded-xl border border-white/10 bg-void px-3 text-white"
+                >
+                  {["Gate A", "Gate B", "Gate C", "Main Gate", "North Entry", "Overflow Desk"].map((gate) => <option key={gate} value={gate}>{gate}</option>)}
+                </select>
+                <select
+                  value={crewDrafts[access.id]?.accessType || access.accessType}
+                  onChange={(inputEvent) => setCrewDrafts((current) => ({ ...current, [access.id]: { ...(current[access.id] || {}), accessType: inputEvent.target.value } }))}
+                  className="min-h-10 rounded-xl border border-white/10 bg-void px-3 text-white"
+                >
+                  {["EVENT_ORGANIZER", "CREW", "PERFORMER", "SPEAKER", "VOLUNTEER_HELPER", "VIP_ENTRY"].map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+                <input
+                  value={crewDrafts[access.id]?.note ?? access.note ?? ""}
+                  onChange={(inputEvent) => setCrewDrafts((current) => ({ ...current, [access.id]: { ...(current[access.id] || {}), note: inputEvent.target.value } }))}
+                  placeholder="Note"
+                  className="min-h-10 rounded-xl border border-white/10 bg-white/6 px-3 text-white"
+                />
+                <button type="button" onClick={() => saveCrewAccess(access.id)} className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-100">Save</button>
+                <button type="button" onClick={() => revokeCrewAccess(access.id)} disabled={!access.isActive} className="rounded-xl border border-rose-300/25 bg-rose-400/10 px-3 text-xs font-black uppercase tracking-[0.12em] text-rose-100 disabled:opacity-40">Revoke</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </GlassPanel>
     </>
   );
 }

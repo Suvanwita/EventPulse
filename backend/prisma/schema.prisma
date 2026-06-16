@@ -49,6 +49,19 @@ enum EventLogType {
   NO_SHOW_RELEASED
   REDIS_COUNTER_SYNCED
   KAFKA_EVENT_PUBLISHED
+  CREW_ACCESS_GRANTED
+  CREW_ACCESS_UPDATED
+  CREW_ACCESS_REVOKED
+  CREW_SPECIAL_ENTRY_USED
+}
+
+enum CrewAccessType {
+  EVENT_ORGANIZER
+  CREW
+  PERFORMER
+  SPEAKER
+  VOLUNTEER_HELPER
+  VIP_ENTRY
 }
 
 model User {
@@ -64,6 +77,8 @@ model User {
   waitlistEntries WaitlistEntry[]
   checkIns        CheckIn[]       @relation("UserCheckIns")
   scannedCheckIns CheckIn[]       @relation("VolunteerScans")
+  crewAccesses    EventCrewAccess[] @relation("CrewAccessUser")
+  assignedCrewAccesses EventCrewAccess[] @relation("CrewAccessAssignedBy")
 
   @@index([createdAt])
 }
@@ -103,6 +118,7 @@ model Event {
   waitlistEntries      WaitlistEntry[]
   checkIns             CheckIn[]
   logs                 EventLog[]
+  crewAccesses         EventCrewAccess[]
 
   @@index([venueId])
   @@index([startTime])
@@ -154,19 +170,49 @@ model CheckIn {
   id             String       @id @default(uuid())
   eventId        String
   userId         String
-  registrationId String       @unique
+  registrationId String?      @unique
   scannedById    String
   gateName       String
   scannedAt      DateTime     @default(now())
+  specialEntryUsed Boolean    @default(false)
+  crewAccessId   String?
+  accessType     CrewAccessType?
   event          Event        @relation(fields: [eventId], references: [id])
   user           User         @relation("UserCheckIns", fields: [userId], references: [id])
-  registration   Registration @relation(fields: [registrationId], references: [id])
+  registration   Registration? @relation(fields: [registrationId], references: [id])
   scannedBy      User         @relation("VolunteerScans", fields: [scannedById], references: [id])
+  crewAccess     EventCrewAccess? @relation(fields: [crewAccessId], references: [id])
 
   @@index([eventId])
   @@index([userId])
   @@index([scannedById])
   @@index([scannedAt])
+  @@index([crewAccessId])
+  @@index([accessType])
+}
+
+model EventCrewAccess {
+  id           String         @id @default(uuid())
+  eventId      String
+  userId       String
+  assignedById String
+  gateName     String
+  note         String?
+  accessType   CrewAccessType
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  event        Event          @relation(fields: [eventId], references: [id])
+  user         User           @relation("CrewAccessUser", fields: [userId], references: [id])
+  assignedBy   User           @relation("CrewAccessAssignedBy", fields: [assignedById], references: [id])
+  checkIns     CheckIn[]
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([gateName])
+  @@index([accessType])
+  @@index([isActive])
 }
 
 model EventLog {

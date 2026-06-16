@@ -2,6 +2,7 @@ const prisma = require("../../config/prisma");
 const ApiError = require("../../utils/ApiError");
 const { incrementCheckedIn } = require("../../utils/eventCounters");
 const {
+  publishCrewSpecialEntryUsed,
   publishCheckinCompleted,
   publishScanFailed,
 } = require("../../utils/eventProducer");
@@ -13,6 +14,7 @@ const {
   emitCapacityUpdated,
   emitCheckinUpdated,
   emitEntryRateUpdated,
+  emitSpecialEntryUsed,
 } = require("../../utils/socketEmitter");
 
 const SCAN_LOCK_TTL_MS = 10_000;
@@ -44,6 +46,38 @@ function decodeQrTokenUnsafe(token) {
   } catch (error) {
     return null;
   }
+}
+
+function buildCrewScanFields(crewAccess, scannedGate) {
+  if (!crewAccess) {
+    return {
+      specialEntry: false,
+    };
+  }
+
+  return {
+    specialEntry: true,
+    accessType: crewAccess.accessType,
+    assignedGate: crewAccess.gateName,
+    scannedGate,
+    gateMatched: crewAccess.gateName === scannedGate,
+    note: crewAccess.note,
+    crewAccessId: crewAccess.id,
+  };
+}
+
+async function getActiveCrewAccess(tx, eventId, userId) {
+  return tx.eventCrewAccess.findUnique({
+    where: {
+      eventId_userId: {
+        eventId,
+        userId,
+      },
+    },
+    include: {
+      user: true,
+    },
+  }).then((access) => (access?.isActive ? access : null));
 }
 
 async function runBestEffort(label, operation) {
@@ -157,19 +191,113 @@ async function scanQrToken(body, scanner) {
           });
 
           if (!registration) {
-            await rejectScan(
-              {
+            if (!String(payload.registrationId || "").startsWith("crew:")) {
+              await rejectScan(
+                {
+                  eventId: payload.eventId,
+                  userId: payload.userId,
+                  registrationId: payload.registrationId,
+                  scanner,
+                  metadata: {
+                    tokenHash,
+                  },
+                },
+                404,
+                "Registration not found for QR token"
+              );
+            }
+
+            const crewAccessId = String(payload.registrationId).slice("crew:".length);
+            const crewAccess = await tx.eventCrewAccess.findFirst({
+              where: {
+                id: crewAccessId,
                 eventId: payload.eventId,
                 userId: payload.userId,
-                registrationId: payload.registrationId,
-                scanner,
+                isActive: true,
+              },
+              include: {
+                event: true,
+                user: true,
+              },
+            });
+
+            if (!crewAccess) {
+              await rejectScan(
+                {
+                  eventId: payload.eventId,
+                  userId: payload.userId,
+                  registrationId: payload.registrationId,
+                  scanner,
+                  metadata: {
+                    tokenHash,
+                  },
+                },
+                404,
+                "Active crew access not found for QR token"
+              );
+            }
+
+            const existingSpecialEntry = await tx.checkIn.findFirst({
+              where: {
+                eventId: payload.eventId,
+                userId: payload.userId,
+                crewAccessId: crewAccess.id,
+                specialEntryUsed: true,
+              },
+            });
+
+            if (existingSpecialEntry) {
+              await rejectScan(
+                {
+                  eventId: payload.eventId,
+                  userId: payload.userId,
+                  registrationId: null,
+                  scanner,
+                  metadata: {
+                    crewAccessId: crewAccess.id,
+                  },
+                },
+                409,
+                "Duplicate special entry rejected"
+              );
+            }
+
+            const scannedAt = new Date();
+            const checkIn = await tx.checkIn.create({
+              data: {
+                eventId: payload.eventId,
+                userId: payload.userId,
+                scannedById: scanner.id,
+                gateName,
+                scannedAt,
+                specialEntryUsed: true,
+                crewAccessId: crewAccess.id,
+                accessType: crewAccess.accessType,
+              },
+            });
+
+            await tx.eventLog.create({
+              data: {
+                eventId: payload.eventId,
+                type: "CREW_SPECIAL_ENTRY_USED",
+                message: "Crew special entry used",
                 metadata: {
-                  tokenHash,
+                  checkInId: checkIn.id,
+                  crewAccessId: crewAccess.id,
+                  userId: payload.userId,
+                  scannedById: scanner.id,
+                  gateName,
                 },
               },
-              404,
-              "Registration not found for QR token"
-            );
+            });
+
+            return {
+              checkIn,
+              registration: null,
+              event: crewAccess.event,
+              student: crewAccess.user,
+              crewAccess,
+            };
           }
 
           if (
@@ -228,6 +356,11 @@ async function scanQrToken(body, scanner) {
             );
           }
 
+          const crewAccess = await getActiveCrewAccess(
+            tx,
+            registration.eventId,
+            registration.userId
+          );
           const scannedAt = new Date();
           const checkIn = await tx.checkIn.create({
             data: {
@@ -237,6 +370,9 @@ async function scanQrToken(body, scanner) {
               scannedById: scanner.id,
               gateName,
               scannedAt,
+              specialEntryUsed: Boolean(crewAccess),
+              crewAccessId: crewAccess?.id || null,
+              accessType: crewAccess?.accessType || null,
             },
           });
 
@@ -270,6 +406,7 @@ async function scanQrToken(body, scanner) {
             registration: updatedRegistration,
             event: registration.event,
             student: registration.user,
+            crewAccess,
           };
         });
       } catch (error) {
@@ -295,24 +432,24 @@ async function scanQrToken(body, scanner) {
   );
 
   await runBestEffort("Redis checked-in counter increment", () =>
-    incrementCheckedIn(result.registration.eventId)
+    incrementCheckedIn(result.checkIn.eventId)
   );
   await runBestEffort("Socket capacity update", () =>
-    emitCapacityUpdated(result.registration.eventId)
+    emitCapacityUpdated(result.checkIn.eventId)
   );
-  emitCheckinUpdated(result.registration.eventId, {
+  emitCheckinUpdated(result.checkIn.eventId, {
     action: "completed",
     checkIn: result.checkIn,
-    registrationId: result.registration.id,
-    userId: result.registration.userId,
+    registrationId: result.registration?.id || null,
+    userId: result.checkIn.userId,
   });
   await runBestEffort("Socket entry rate update", () =>
-    emitEntryRateUpdated(result.registration.eventId)
+    emitEntryRateUpdated(result.checkIn.eventId)
   );
   await publishCheckinCompleted({
-    eventId: result.registration.eventId,
-    userId: result.registration.userId,
-    registrationId: result.registration.id,
+    eventId: result.checkIn.eventId,
+    userId: result.checkIn.userId,
+    registrationId: result.registration?.id || null,
     metadata: {
       checkInId: result.checkIn.id,
       scannedById: scanner.id,
@@ -320,12 +457,158 @@ async function scanQrToken(body, scanner) {
     },
   });
 
-  const { qrTokenHash, ...registration } = result.registration;
+  const crewScanFields = buildCrewScanFields(result.crewAccess, gateName);
+
+  if (crewScanFields.specialEntry) {
+    emitSpecialEntryUsed(result.checkIn.eventId, {
+      userId: result.checkIn.userId,
+      studentName: result.student?.name,
+      accessType: result.crewAccess.accessType,
+      gateName,
+      note: result.crewAccess.note,
+    });
+    await publishCrewSpecialEntryUsed({
+      eventId: result.checkIn.eventId,
+      userId: result.checkIn.userId,
+      registrationId: result.registration?.id || null,
+      metadata: {
+        checkInId: result.checkIn.id,
+        crewAccessId: result.crewAccess.id,
+        gateName,
+        gateMatched: crewScanFields.gateMatched,
+      },
+    });
+  }
+
+  const registration = result.registration
+    ? (({ qrTokenHash, ...safeRegistration }) => safeRegistration)(result.registration)
+    : null;
+  const crewAccess = result.crewAccess
+    ? {
+        id: result.crewAccess.id,
+        accessType: result.crewAccess.accessType,
+        gateName: result.crewAccess.gateName,
+        note: result.crewAccess.note,
+      }
+    : null;
 
   return {
-    ...result,
+    checkIn: result.checkIn,
+    event: result.event,
     registration,
     student: safeUser(result.student),
+    crewAccess,
+    ...crewScanFields,
+  };
+}
+
+async function specialEntry(body, scanner) {
+  const eventId = typeof body.eventId === "string" ? body.eventId.trim() : "";
+  const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+  const gateName = typeof body.gateName === "string" ? body.gateName.trim() : "";
+
+  if (!eventId || !userId || !gateName) {
+    throw new ApiError(400, "eventId, userId, and gateName are required");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const crewAccess = await tx.eventCrewAccess.findUnique({
+      where: {
+        eventId_userId: {
+          eventId,
+          userId,
+        },
+      },
+      include: {
+        event: true,
+        user: true,
+      },
+    });
+
+    if (!crewAccess || !crewAccess.isActive) {
+      throw new ApiError(404, "Active crew access not found");
+    }
+
+    const existingSpecialEntry = await tx.checkIn.findFirst({
+      where: {
+        eventId,
+        userId,
+        crewAccessId: crewAccess.id,
+        specialEntryUsed: true,
+      },
+    });
+
+    if (existingSpecialEntry) {
+      throw new ApiError(409, "Duplicate special entry rejected");
+    }
+
+    const checkIn = await tx.checkIn.create({
+      data: {
+        eventId,
+        userId,
+        scannedById: scanner.id,
+        gateName,
+        specialEntryUsed: true,
+        crewAccessId: crewAccess.id,
+        accessType: crewAccess.accessType,
+      },
+    });
+
+    await tx.eventLog.create({
+      data: {
+        eventId,
+        type: "CREW_SPECIAL_ENTRY_USED",
+        message: "Crew special entry used",
+        metadata: {
+          checkInId: checkIn.id,
+          crewAccessId: crewAccess.id,
+          userId,
+          scannedById: scanner.id,
+          gateName,
+          manual: true,
+        },
+      },
+    });
+
+    return {
+      checkIn,
+      event: crewAccess.event,
+      student: crewAccess.user,
+      crewAccess,
+    };
+  });
+
+  const crewScanFields = buildCrewScanFields(result.crewAccess, gateName);
+  emitSpecialEntryUsed(eventId, {
+    userId,
+    studentName: result.student?.name,
+    accessType: result.crewAccess.accessType,
+    gateName,
+    note: result.crewAccess.note,
+  });
+  await publishCrewSpecialEntryUsed({
+    eventId,
+    userId,
+    metadata: {
+      checkInId: result.checkIn.id,
+      crewAccessId: result.crewAccess.id,
+      gateName,
+      gateMatched: crewScanFields.gateMatched,
+      manual: true,
+    },
+  });
+
+  return {
+    checkIn: result.checkIn,
+    event: result.event,
+    student: safeUser(result.student),
+    crewAccess: {
+      id: result.crewAccess.id,
+      accessType: result.crewAccess.accessType,
+      gateName: result.crewAccess.gateName,
+      note: result.crewAccess.note,
+    },
+    ...crewScanFields,
   };
 }
 
@@ -394,6 +677,7 @@ async function listEventCheckIns(eventId, user) {
 }
 
 module.exports = {
+  specialEntry,
   scanQrToken,
   listEventCheckIns,
 };

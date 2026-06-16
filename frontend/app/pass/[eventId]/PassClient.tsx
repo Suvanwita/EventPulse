@@ -17,6 +17,13 @@ type PassData = {
   qrToken: string;
   qrImage: string;
   expiry: string;
+  passType?: string;
+  specialEntryAllowed?: boolean;
+  crewAccess?: {
+    accessType: string;
+    gateName: string;
+    note?: string;
+  } | null;
 };
 
 export function PassClient({ eventId }: { eventId: string }) {
@@ -103,6 +110,22 @@ export function PassClient({ eventId }: { eventId: string }) {
               ))}
             </div>
             <p className="mt-6 rounded-xl border border-lime/20 bg-lime/10 p-4 text-sm font-bold text-lime">Single-use encrypted entry pass</p>
+            {pass.specialEntryAllowed && pass.crewAccess ? (
+              <div className="mt-4 rounded-xl border border-violet/25 bg-violet/10 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-100/70">Special Event Access</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-white/45">Access type</p>
+                    <p className="font-black text-white">{pass.crewAccess.accessType}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/45">Assigned gate</p>
+                    <p className="font-black text-white">{pass.crewAccess.gateName}</p>
+                  </div>
+                </div>
+                {pass.crewAccess.note ? <p className="mt-3 text-sm font-bold text-violet-100">{pass.crewAccess.note}</p> : null}
+              </div>
+            ) : null}
           </div>
         </div>
       </GlassPanel>
@@ -117,4 +140,3 @@ export function PassClient({ eventId }: { eventId: string }) {
     </div>
   );
 }
-

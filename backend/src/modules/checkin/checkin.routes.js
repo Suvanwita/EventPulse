@@ -15,6 +15,13 @@ router.post(
   checkinController.scanQrToken
 );
 
+router.post(
+  "/special-entry",
+  authMiddleware,
+  requireRole("VOLUNTEER", "ORGANIZER", "ADMIN"),
+  checkinController.specialEntry
+);
+
 router.get(
   "/",
   authMiddleware,

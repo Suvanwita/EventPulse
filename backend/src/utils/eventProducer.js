@@ -8,6 +8,10 @@ const TOPICS = {
   CHECKIN_COMPLETED: "eventpulse.checkin.completed",
   SCAN_FAILED: "eventpulse.security.scan_failed",
   NO_SHOW_RELEASED: "eventpulse.no_show.released",
+  CREW_ACCESS_GRANTED: "eventpulse.crew.access_granted",
+  CREW_ACCESS_UPDATED: "eventpulse.crew.access_updated",
+  CREW_ACCESS_REVOKED: "eventpulse.crew.access_revoked",
+  CREW_SPECIAL_ENTRY_USED: "eventpulse.crew.special_entry_used",
 };
 
 function normalizePayload(payload = {}) {
@@ -79,9 +83,29 @@ function publishNoShowReleased(payload) {
   return publishEvent(TOPICS.NO_SHOW_RELEASED, payload);
 }
 
+function publishCrewAccessGranted(payload) {
+  return publishEvent(TOPICS.CREW_ACCESS_GRANTED, payload);
+}
+
+function publishCrewAccessUpdated(payload) {
+  return publishEvent(TOPICS.CREW_ACCESS_UPDATED, payload);
+}
+
+function publishCrewAccessRevoked(payload) {
+  return publishEvent(TOPICS.CREW_ACCESS_REVOKED, payload);
+}
+
+function publishCrewSpecialEntryUsed(payload) {
+  return publishEvent(TOPICS.CREW_SPECIAL_ENTRY_USED, payload);
+}
+
 module.exports = {
   TOPICS,
   publishEvent,
+  publishCrewAccessGranted,
+  publishCrewAccessRevoked,
+  publishCrewAccessUpdated,
+  publishCrewSpecialEntryUsed,
   publishRegistrationCreated,
   publishWaitlistJoined,
   publishWaitlistPromoted,

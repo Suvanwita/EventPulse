@@ -6,6 +6,8 @@ function getCounterKeys(eventId) {
     registeredCount: `event:${eventId}:registeredCount`,
     checkedInCount: `event:${eventId}:checkedInCount`,
     waitlistCount: `event:${eventId}:waitlistCount`,
+    specialEntryCount: `event:${eventId}:specialEntryCount`,
+    crewCount: `event:${eventId}:crewCount`,
   };
 }
 
@@ -90,6 +92,18 @@ async function decrementWaitlist(eventId) {
   return redis.decr(getCounterKeys(eventId).waitlistCount);
 }
 
+async function incrementSpecialEntry(eventId) {
+  return redis.incr(getCounterKeys(eventId).specialEntryCount);
+}
+
+async function incrementCrewCount(eventId) {
+  return redis.incr(getCounterKeys(eventId).crewCount);
+}
+
+async function decrementCrewCount(eventId) {
+  return redis.decr(getCounterKeys(eventId).crewCount);
+}
+
 module.exports = {
   getCounterKeys,
   getEventCounters,
@@ -97,6 +111,9 @@ module.exports = {
   incrementRegistered,
   decrementRegistered,
   incrementCheckedIn,
+  incrementCrewCount,
   incrementWaitlist,
+  incrementSpecialEntry,
+  decrementCrewCount,
   decrementWaitlist,
 };

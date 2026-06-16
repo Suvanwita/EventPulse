@@ -25,6 +25,7 @@ type ScanResult = {
   message: string;
   time: string;
   detail: string;
+  specialEntry?: any;
 };
 
 const gates = ["Main Gate", "North Entry", "Backstage Door", "Overflow Desk"];
@@ -140,6 +141,7 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
         message: "ACCESS GRANTED",
         time,
         detail: `${data?.event?.title || "Event"} / ${data?.student?.name || "Student"} / seat ${data?.registration?.seatNumber || "-"}`,
+        specialEntry: data?.specialEntry ? data : null,
       };
 
       setResult(scanResult);
@@ -267,6 +269,21 @@ export function VolunteerScanClient({ initialScans }: { initialScans: ScanRecord
                 <span className="text-white/55">Decision</span>
                 <span className="font-bold text-white">{result.status === "ALLOWED" ? "ACCESS GRANTED" : "ACCESS DENIED"}</span>
               </div>
+              {result.specialEntry ? (
+                <div className="rounded-xl border border-violet/25 bg-violet/10 p-4">
+                  <p className="font-black uppercase tracking-[0.16em] text-violet-100">SPECIAL ENTRY VERIFIED</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <p><span className="text-white/45">Access</span> <span className="font-bold text-white">{result.specialEntry.accessType}</span></p>
+                    <p><span className="text-white/45">Assigned</span> <span className="font-bold text-white">{result.specialEntry.assignedGate}</span></p>
+                    <p><span className="text-white/45">Scanned</span> <span className="font-bold text-white">{result.specialEntry.scannedGate}</span></p>
+                    <p><span className="text-white/45">Match</span> <span className="font-bold text-white">{result.specialEntry.gateMatched ? "yes" : "warning"}</span></p>
+                  </div>
+                  {!result.specialEntry.gateMatched ? (
+                    <p className="mt-3 rounded-lg border border-amber/25 bg-amber/10 p-3 font-bold text-amber">Assigned gate differs from scanned gate.</p>
+                  ) : null}
+                  {result.specialEntry.note ? <p className="mt-3 text-violet-100">{result.specialEntry.note}</p> : null}
+                </div>
+              ) : null}
             </GlassPanel>
           ) : null}
         </section>

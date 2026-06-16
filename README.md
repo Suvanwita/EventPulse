@@ -161,6 +161,10 @@ Trie is used for fast autocomplete across events, venues, zones, and categories.
 
 Graph utilities are used to model venue zones and gate loads, enabling least-crowded gate recommendations and simple crowd-flow routing.
 
+## Event Crew Access
+
+Organizers can assign selected students as event-specific organizers, crew members, performers, speakers, volunteer helpers, or VIP entries. Access is scoped to a single event and does not change the student’s global `STUDENT` role. Each crew access record can specify a special gate and an optional note that volunteers can see during scanning. Crew access updates emit live Socket.IO events to the event room and publish best-effort Kafka stream events.
+
 ## Workers
 
 Run manually for now:

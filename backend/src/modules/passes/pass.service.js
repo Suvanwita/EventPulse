@@ -42,31 +42,54 @@ async function findRegistration(eventId, user, requestedUserId) {
 }
 
 async function getEventPass(eventId, user, options = {}) {
+  const requestedUserId =
+    ["ORGANIZER", "ADMIN"].includes(user.role) && options.userId
+      ? options.userId
+      : user.id;
   const registration = await findRegistration(eventId, user, options.userId);
+  const crewAccess = await prisma.eventCrewAccess.findUnique({
+    where: {
+      eventId_userId: {
+        eventId,
+        userId: requestedUserId,
+      },
+    },
+    include: {
+      event: {
+        include: {
+          venue: true,
+        },
+      },
+      user: true,
+    },
+  });
+  const activeCrewAccess = crewAccess?.isActive ? crewAccess : null;
 
-  if (!registration) {
+  if (!registration && !activeCrewAccess) {
     throw new ApiError(404, "Registration not found");
   }
 
-  if (!canFetchPassForRegistration(registration, user)) {
+  if (registration && !canFetchPassForRegistration(registration, user)) {
     throw new ApiError(403, "Forbidden");
   }
 
-  if (!["CONFIRMED", "CHECKED_IN"].includes(registration.status)) {
+  if (registration && !["CONFIRMED", "CHECKED_IN"].includes(registration.status) && !activeCrewAccess) {
     throw new ApiError(400, "Pass is only available for confirmed registrations");
   }
 
-  const expiry = registration.event.endTime.toISOString();
+  const event = registration?.event || activeCrewAccess.event;
+  const passUser = registration?.user || activeCrewAccess.user;
+  const expiry = event.endTime.toISOString();
   const payload = generateQrPayload(
     eventId,
-    registration.userId,
-    registration.id,
+    passUser.id,
+    registration?.id || `crew:${activeCrewAccess.id}`,
     expiry
   );
   const qrToken = generateQrToken(payload);
   const qrTokenHash = hashQrToken(qrToken);
 
-  if (registration.qrTokenHash !== qrTokenHash) {
+  if (registration && registration.qrTokenHash !== qrTokenHash) {
     await prisma.registration.update({
       where: {
         id: registration.id,
@@ -81,20 +104,30 @@ async function getEventPass(eventId, user, options = {}) {
 
   return {
     event: {
-      id: registration.event.id,
-      title: registration.event.title,
-      description: registration.event.description,
-      startTime: registration.event.startTime,
-      endTime: registration.event.endTime,
-      status: registration.event.status,
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      status: event.status,
     },
-    venue: registration.event.venue,
-    student: safeUser(registration.user),
-    registrationStatus: registration.status,
-    seatNumber: registration.seatNumber,
+    venue: event.venue,
+    student: safeUser(passUser),
+    registrationStatus: registration?.status || "SPECIAL_ENTRY",
+    seatNumber: registration?.seatNumber || null,
     qrToken,
     qrImage,
     expiry,
+    passType: activeCrewAccess ? "SPECIAL_ENTRY" : "ATTENDEE",
+    specialEntryAllowed: Boolean(activeCrewAccess),
+    crewAccess: activeCrewAccess
+      ? {
+          id: activeCrewAccess.id,
+          accessType: activeCrewAccess.accessType,
+          gateName: activeCrewAccess.gateName,
+          note: activeCrewAccess.note,
+        }
+      : null,
   };
 }
 

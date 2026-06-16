@@ -167,12 +167,22 @@ function emitNoShowReleased(eventId, payload = {}) {
   return emitToEventRoom(eventId, "no-show-released", payload);
 }
 
+function emitCrewAccessUpdated(eventId, payload = {}) {
+  return emitToEventRoom(eventId, "crew-access-updated", payload);
+}
+
+function emitSpecialEntryUsed(eventId, payload = {}) {
+  return emitToEventRoom(eventId, "special-entry-used", payload);
+}
+
 module.exports = {
   emitCapacityUpdated,
   emitCheckinUpdated,
+  emitCrewAccessUpdated,
   emitEntryRateUpdated,
   emitNoShowReleased,
   emitRegistrationUpdated,
+  emitSpecialEntryUsed,
   emitToEventRoom,
   emitWaitlistUpdated,
   getCapacityPayload,

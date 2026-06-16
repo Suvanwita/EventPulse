@@ -8,6 +8,12 @@ const scanQrToken = asyncHandler(async (req, res) => {
   return response.success(res, 200, "Check-in completed", result);
 });
 
+const specialEntry = asyncHandler(async (req, res) => {
+  const result = await checkinService.specialEntry(req.body, req.user);
+
+  return response.success(res, 200, "Special entry verified", result);
+});
+
 const listEventCheckIns = asyncHandler(async (req, res) => {
   const checkIns = await checkinService.listEventCheckIns(
     req.params.id,
@@ -20,6 +26,7 @@ const listEventCheckIns = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  specialEntry,
   scanQrToken,
   listEventCheckIns,
 };
