@@ -1,6 +1,7 @@
 const express = require("express");
 
 const authRoutes = require("../modules/auth/auth.routes");
+const checkinRoutes = require("../modules/checkin/checkin.routes");
 const eventRoutes = require("../modules/events/event.routes");
 const venueRoutes = require("../modules/venues/venue.routes");
 const response = require("../utils/response");
@@ -8,6 +9,7 @@ const response = require("../utils/response");
 const router = express.Router();
 
 router.use("/api/auth", authRoutes);
+router.use("/api/checkin", checkinRoutes);
 router.use("/api/events", eventRoutes);
 router.use("/api/venues", venueRoutes);
 
