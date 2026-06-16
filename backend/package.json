@@ -2,10 +2,32 @@
   "name": "eventpulse-backend",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "node src/index.js"
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "seed": "node prisma/seed.js"
   },
-  "dependencies": {}
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "ioredis": "^5.11.1",
+    "jsonwebtoken": "^9.0.3",
+    "kafkajs": "^2.2.4",
+    "morgan": "^1.11.0",
+    "nodemon": "^3.1.14",
+    "prisma": "^7.8.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3",
+    "uuid": "^14.0.0"
+  }
 }
-
