@@ -5,6 +5,10 @@ const env = require("./env");
 const kafka = new Kafka({
   clientId: "eventpulse-backend",
   brokers: [env.KAFKA_BROKER],
+  connectionTimeout: 1000,
+  retry: {
+    retries: 0,
+  },
 });
 
 let producer;
