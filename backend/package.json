@@ -9,7 +9,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "worker:noshow": "node src/workers/noShowWorker.js",
+    "worker:analytics": "node src/workers/analyticsWorker.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -1,5 +1,6 @@
 const express = require("express");
 
+const analyticsRoutes = require("../modules/analytics/analytics.routes");
 const authRoutes = require("../modules/auth/auth.routes");
 const checkinRoutes = require("../modules/checkin/checkin.routes");
 const eventRoutes = require("../modules/events/event.routes");
@@ -8,6 +9,7 @@ const response = require("../utils/response");
 
 const router = express.Router();
 
+router.use("/api/analytics", analyticsRoutes);
 router.use("/api/auth", authRoutes);
 router.use("/api/checkin", checkinRoutes);
 router.use("/api/events", eventRoutes);
