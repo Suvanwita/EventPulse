@@ -7,4 +7,38 @@ const kafka = new Kafka({
   brokers: [env.KAFKA_BROKER],
 });
 
-module.exports = kafka;
+let producer;
+let producerConnected = false;
+
+function getProducer() {
+  if (!producer) {
+    producer = kafka.producer();
+  }
+
+  return producer;
+}
+
+async function connectProducer() {
+  const kafkaProducer = getProducer();
+
+  if (!producerConnected) {
+    await kafkaProducer.connect();
+    producerConnected = true;
+  }
+
+  return kafkaProducer;
+}
+
+async function disconnectProducer() {
+  if (producer && producerConnected) {
+    await producer.disconnect();
+    producerConnected = false;
+  }
+}
+
+module.exports = {
+  kafka,
+  getProducer,
+  connectProducer,
+  disconnectProducer,
+};
