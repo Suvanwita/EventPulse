@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const FenwickTree = require("../../dsa/fenwickTree");
 const { hasOverlap } = require("../../dsa/intervalScheduler");
 const ApiError = require("../../utils/ApiError");
 
@@ -43,6 +44,127 @@ function getEntryRatePerMinute(checkIns) {
   );
 
   return Number((checkIns.length / spanMinutes).toFixed(2));
+}
+
+function normalizeBucketMinutes(bucketMinutes) {
+  const value = Number(bucketMinutes || 10);
+
+  if (!Number.isInteger(value) || value <= 0 || value > 1440) {
+    throw new ApiError(400, "bucketMinutes must be a positive integer up to 1440");
+  }
+
+  return value;
+}
+
+function buildCheckinBuckets(checkIns, bucketMinutes = 10) {
+  const normalizedBucketMinutes = normalizeBucketMinutes(bucketMinutes);
+  const bucketMs = normalizedBucketMinutes * 60 * 1000;
+  const timestamps = checkIns
+    .map((checkIn) => new Date(checkIn.scannedAt).getTime())
+    .filter((timestamp) => Number.isFinite(timestamp))
+    .sort((a, b) => a - b);
+
+  if (timestamps.length === 0) {
+    return {
+      bucketMinutes: normalizedBucketMinutes,
+      bucketMs,
+      baseTime: null,
+      buckets: [],
+      tree: new FenwickTree(0),
+    };
+  }
+
+  const baseTime = Math.floor(timestamps[0] / bucketMs) * bucketMs;
+  const lastTime = Math.floor(timestamps[timestamps.length - 1] / bucketMs) * bucketMs;
+  const bucketCount = Math.floor((lastTime - baseTime) / bucketMs) + 1;
+  const counts = Array(bucketCount).fill(0);
+
+  timestamps.forEach((timestamp) => {
+    const index = Math.floor((timestamp - baseTime) / bucketMs);
+    counts[index] += 1;
+  });
+
+  const tree = new FenwickTree(0).buildFromArray(counts);
+  const buckets = counts.map((count, index) => {
+    const start = baseTime + index * bucketMs;
+    return {
+      index,
+      startTime: new Date(start).toISOString(),
+      endTime: new Date(start + bucketMs).toISOString(),
+      count,
+    };
+  });
+
+  return {
+    bucketMinutes: normalizedBucketMinutes,
+    bucketMs,
+    baseTime,
+    buckets,
+    tree,
+  };
+}
+
+function getBucketIndex(timestamp, baseTime, bucketMs) {
+  return Math.floor((timestamp - baseTime) / bucketMs);
+}
+
+function getCheckinsInRangeFenwick(checkIns, startTime, endTime, bucketMinutes = 10) {
+  const start = new Date(startTime).getTime();
+  const end = new Date(endTime).getTime();
+
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    throw new ApiError(400, "startTime and endTime must be valid ISO dates");
+  }
+
+  if (start > end) {
+    throw new ApiError(400, "startTime must be before or equal to endTime");
+  }
+
+  const bucketData = buildCheckinBuckets(checkIns, bucketMinutes);
+
+  if (bucketData.baseTime === null) {
+    return {
+      checkinCount: 0,
+      buckets: [],
+      peakWindow: null,
+    };
+  }
+
+  const left = getBucketIndex(start, bucketData.baseTime, bucketData.bucketMs);
+  const right = getBucketIndex(end, bucketData.baseTime, bucketData.bucketMs);
+  const boundedLeft = Math.max(left, 0);
+  const boundedRight = Math.min(right, bucketData.buckets.length - 1);
+  const buckets =
+    boundedLeft <= boundedRight
+      ? bucketData.buckets.slice(boundedLeft, boundedRight + 1)
+      : [];
+
+  return {
+    checkinCount: bucketData.tree.rangeQuery(left, right),
+    buckets,
+    peakWindow: getPeakCheckinWindowFenwick(checkIns, bucketMinutes),
+  };
+}
+
+function getPeakCheckinWindowFenwick(checkIns, bucketMinutes = 10) {
+  const bucketData = buildCheckinBuckets(checkIns, bucketMinutes);
+
+  if (bucketData.buckets.length === 0) {
+    return null;
+  }
+
+  let peakBucket = bucketData.buckets[0];
+  bucketData.buckets.forEach((bucket) => {
+    const count = bucketData.tree.rangeQuery(bucket.index, bucket.index);
+    if (count > peakBucket.count) {
+      peakBucket = {
+        ...bucket,
+        count,
+      };
+    }
+  });
+
+  return peakBucket;
 }
 
 async function assertEventAnalyticsAccess(eventId, user) {
@@ -156,6 +278,52 @@ async function getEventAnalytics(eventId) {
   };
 }
 
+async function getEventTimeRangeAnalytics(eventId, query) {
+  const bucketMinutes = normalizeBucketMinutes(query.bucketMinutes || 10);
+  const event = await prisma.event.findUnique({
+    where: {
+      id: eventId,
+    },
+    select: {
+      id: true,
+      startTime: true,
+      endTime: true,
+    },
+  });
+
+  if (!event) {
+    throw new ApiError(404, "Event not found");
+  }
+
+  const startTime = query.startTime || event.startTime.toISOString();
+  const endTime = query.endTime || event.endTime.toISOString();
+  const checkIns = await prisma.checkIn.findMany({
+    where: {
+      eventId,
+    },
+    select: {
+      scannedAt: true,
+    },
+    orderBy: {
+      scannedAt: "asc",
+    },
+  });
+  const rangeAnalytics = getCheckinsInRangeFenwick(
+    checkIns,
+    startTime,
+    endTime,
+    bucketMinutes
+  );
+
+  return {
+    eventId,
+    startTime,
+    endTime,
+    bucketMinutes,
+    ...rangeAnalytics,
+  };
+}
+
 function countVenueConflicts(events) {
   let conflictCount = 0;
   const intervals = events.map((event) => ({
@@ -249,7 +417,11 @@ async function getCheckinAnalytics() {
 
 module.exports = {
   assertEventAnalyticsAccess,
+  buildCheckinBuckets,
+  getCheckinsInRangeFenwick,
   getEventAnalytics,
+  getEventTimeRangeAnalytics,
+  getPeakCheckinWindowFenwick,
   getVenueAnalytics,
   getCheckinAnalytics,
 };

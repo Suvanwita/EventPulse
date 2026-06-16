@@ -9,6 +9,16 @@ const getEventAnalytics = asyncHandler(async (req, res) => {
   return response.success(res, 200, "Event analytics fetched", analytics);
 });
 
+const getEventTimeRangeAnalytics = asyncHandler(async (req, res) => {
+  await analyticsService.assertEventAnalyticsAccess(req.params.id, req.user);
+  const analytics = await analyticsService.getEventTimeRangeAnalytics(
+    req.params.id,
+    req.query
+  );
+
+  return response.success(res, 200, "Time-range analytics fetched", analytics);
+});
+
 const getVenueAnalytics = asyncHandler(async (req, res) => {
   const analytics = await analyticsService.getVenueAnalytics();
 
@@ -25,6 +35,7 @@ const getCheckinAnalytics = asyncHandler(async (req, res) => {
 
 module.exports = {
   getEventAnalytics,
+  getEventTimeRangeAnalytics,
   getVenueAnalytics,
   getCheckinAnalytics,
 };

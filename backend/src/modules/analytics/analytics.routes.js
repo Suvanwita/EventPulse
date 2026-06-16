@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(requireRole("ORGANIZER", "ADMIN"));
 
+router.get("/events/:id/time-range", analyticsController.getEventTimeRangeAnalytics);
 router.get("/events/:id", analyticsController.getEventAnalytics);
 router.get("/venues", analyticsController.getVenueAnalytics);
 router.get("/checkins", analyticsController.getCheckinAnalytics);

@@ -1,19 +1,33 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "./Button";
+import { getUser, isAuthenticated, logout } from "@/lib/auth";
 import { roleNavigation, type Role } from "@/lib/roles";
 
 export function Navbar() {
+  const router = useRouter();
   const [role, setRole] = useState<Role>("STUDENT");
+  const [user, setUser] = useState<{ name: string; role: Role } | null>(null);
 
   useEffect(() => {
-    const storedRole = window.localStorage.getItem("eventpulse-role") as Role | null;
-    if (storedRole && storedRole in roleNavigation) setRole(storedRole);
+    const storedUser = getUser();
+    if (storedUser?.role && storedUser.role in roleNavigation) {
+      setRole(storedUser.role);
+      setUser(storedUser);
+    }
   }, []);
 
-  const links = roleNavigation[role];
+  const links = isAuthenticated() ? roleNavigation[role] : [];
+
+  function handleLogout() {
+    logout();
+    setUser(null);
+    setRole("STUDENT");
+    router.push("/login");
+  }
 
   return (
     <header className="sticky top-0 z-20 border-b border-cyan-200/10 bg-void/70 backdrop-blur-xl">
@@ -30,10 +44,22 @@ export function Navbar() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Button href="/login" variant="ghost" className="hidden sm:inline-flex">
-            Log in
-          </Button>
-          <Button href="/register">Register</Button>
+          {user ? (
+            <>
+              <div className="hidden text-right sm:block">
+                <p className="text-sm font-black text-white">{user.name}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/55">{user.role}</p>
+              </div>
+              <Button type="button" variant="ghost" onClick={handleLogout}>Logout</Button>
+            </>
+          ) : (
+            <>
+              <Button href="/login" variant="ghost" className="hidden sm:inline-flex">
+                Log in
+              </Button>
+              <Button href="/register">Register</Button>
+            </>
+          )}
         </div>
       </nav>
     </header>

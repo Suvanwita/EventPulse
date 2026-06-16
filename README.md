@@ -155,6 +155,8 @@ Topics:
 
 Registration, cancellation, waitlist promotion, no-show release, and QR scans are protected with Redis locks and Prisma transactions. Database unique constraints provide a final safety net for one registration per user/event, one waitlist entry per user/event, and one check-in per registration.
 
+Fenwick Tree is used for efficient time-range check-in analytics over bucketed event entry data. The optimized time-range path powers `GET /api/analytics/events/:id/time-range` without replacing PostgreSQL as the source of truth.
+
 ## Workers
 
 Run manually for now:
@@ -181,6 +183,70 @@ All seeded users use password `password123`.
 - `student3@iiita.ac.in` - `STUDENT`
 - `student4@iiita.ac.in` - `STUDENT`
 - `student5@iiita.ac.in` - `STUDENT`
+
+## Frontend Setup
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Frontend environment variables:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+```
+
+The frontend keeps the futuristic EventPulse spatial operations UI while integrating with the backend APIs. Login and registration store the JWT and user profile in local storage, attach `Authorization: Bearer <token>` to API requests, and update navigation by role.
+
+Integrated pages:
+- `/login`
+- `/register`
+- `/events`
+- `/events/[id]`
+- `/pass/[eventId]`
+- `/organizer/dashboard`
+- `/organizer/events/new`
+- `/organizer/events/[id]`
+- `/volunteer/scan`
+- `/admin/venues`
+- `/admin/analytics`
+
+Role routing:
+- `STUDENT` -> `/events`
+- `ORGANIZER` -> `/organizer/dashboard`
+- `VOLUNTEER` -> `/volunteer/scan`
+- `ADMIN` -> `/admin/venues`
+
+Unauthorized users are sent to `/login`. Authenticated users with the wrong role see an access-denied operations panel.
+
+## Frontend Demo Flow
+
+1. Login as `organizer@iiita.ac.in`.
+2. Create an event from `/organizer/events/new`.
+3. Login as `student1@iiita.ac.in`.
+4. Register from `/events/[id]`.
+5. Open `/pass/[eventId]` and copy the demo QR token.
+6. Login as `volunteer@iiita.ac.in`.
+7. Scan the copied token from `/volunteer/scan`.
+8. Scan it again to verify duplicate-entry rejection.
+9. Login as `admin@iiita.ac.in`.
+10. View `/admin/venues` and `/admin/analytics`.
+11. Open `/organizer/events/[id]` to watch live capacity and check-in updates.
+
+WebSocket behavior:
+- Organizer event control rooms and the volunteer scanner use `socket.io-client`.
+- Clients join rooms with `join-event-room` and leave with `leave-event-room`.
+- Live events update capacity, registration, waitlist, check-in, entry-rate, and no-show signals.
+
+Common frontend fixes:
+- If API calls fail, confirm `NEXT_PUBLIC_API_URL` points to the backend.
+- If sockets stay offline, confirm `NEXT_PUBLIC_SOCKET_URL` points to the backend Socket.IO server.
+- If protected pages redirect, login again and confirm the demo user has the expected role.
+- If QR scan fails, generate a fresh pass because QR tokens are signed and expire at event end time.
 
 ## Manual Testing Checklist
 

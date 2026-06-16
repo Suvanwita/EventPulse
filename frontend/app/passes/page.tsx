@@ -2,17 +2,19 @@ import { AppShell } from "@/components/AppShell";
 import { NeonButton } from "@/components/NeonButton";
 import { ControlChip, GlassPanel, StatusBeacon } from "@/components/OpsUI";
 import { PageHeader } from "@/components/PageHeader";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { events } from "@/lib/data";
 
 export default function PassesPage() {
   const passEvents = events.slice(0, 3);
 
   return (
-    <AppShell>
-      <PageHeader title="My Access Passes" eyebrow="Student" />
-      <div className="grid gap-5 md:grid-cols-3">
-        {passEvents.map((event, index) => (
-          <GlassPanel key={event.id}>
+    <ProtectedRoute>
+      <AppShell>
+        <PageHeader title="My Access Passes" eyebrow="Student" />
+        <div className="grid gap-5 md:grid-cols-3">
+          {passEvents.map((event, index) => (
+            <GlassPanel key={event.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <ControlChip tone={index === 0 ? "lime" : "cyan"}>Seat A-{index + 12}</ControlChip>
@@ -24,10 +26,10 @@ export default function PassesPage() {
             <NeonButton href={`/pass/${event.id}`} variant="ghost" className="mt-5 w-full">
               View Pass
             </NeonButton>
-          </GlassPanel>
-        ))}
-      </div>
-    </AppShell>
+            </GlassPanel>
+          ))}
+        </div>
+      </AppShell>
+    </ProtectedRoute>
   );
 }
-

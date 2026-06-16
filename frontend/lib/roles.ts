@@ -25,6 +25,5 @@ export const roleHome: Record<Role, string> = {
   STUDENT: "/events",
   ORGANIZER: "/organizer/dashboard",
   VOLUNTEER: "/volunteer/scan",
-  ADMIN: "/admin/analytics",
+  ADMIN: "/admin/venues",
 };
-

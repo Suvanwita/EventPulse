@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ErrorAlert } from "@/components/Alert";
 import { FormInput } from "@/components/FormInput";
 import { LoadingState } from "@/components/LoadingState";
 import { NeonButton } from "@/components/NeonButton";
 import { ControlChip, GlassPanel, StatusBeacon } from "@/components/OpsUI";
+import { post } from "@/lib/api";
+import { saveToken, saveUser } from "@/lib/auth";
 import { roleHome, type Role } from "@/lib/roles";
 
 const roles: Role[] = ["STUDENT", "ORGANIZER", "VOLUNTEER", "ADMIN"];
@@ -14,12 +17,27 @@ const roles: Role[] = ["STUDENT", "ORGANIZER", "VOLUNTEER", "ADMIN"];
 export default function LoginPage() {
   const router = useRouter();
   const [role, setRole] = useState<Role>("STUDENT");
+  const [email, setEmail] = useState("student1@iiita.ac.in");
+  const [password, setPassword] = useState("password123");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  function login() {
+  async function login() {
     setIsLoading(true);
-    window.localStorage.setItem("eventpulse-role", role);
-    router.push(roleHome[role]);
+    setError("");
+
+    try {
+      const response = await post("/api/auth/login", { email, password });
+      const { token, user } = response.data;
+
+      saveToken(token);
+      saveUser(user);
+      router.push(roleHome[user.role as Role]);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -61,16 +79,26 @@ export default function LoginPage() {
             </div>
             <StatusBeacon status="open" label={role} />
           </div>
-          <form className="grid gap-4">
-            <FormInput label="Email" type="email" placeholder="you@campus.edu" />
-            <FormInput label="Password" type="password" placeholder="Password" />
+          <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); login(); }}>
+            {error ? <ErrorAlert title="Login failed">{error}</ErrorAlert> : null}
+            <FormInput label="Email" type="email" placeholder="you@campus.edu" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <FormInput label="Password" type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
             <label className="grid gap-2 text-sm font-bold text-white/75">
               Demo role
-              <select value={role} onChange={(event) => setRole(event.target.value as Role)} className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10">
+              <select value={role} onChange={(event) => {
+                const nextRole = event.target.value as Role;
+                setRole(nextRole);
+                setEmail({
+                  STUDENT: "student1@iiita.ac.in",
+                  ORGANIZER: "organizer@iiita.ac.in",
+                  VOLUNTEER: "volunteer@iiita.ac.in",
+                  ADMIN: "admin@iiita.ac.in",
+                }[nextRole]);
+              }} className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10">
                 {roles.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            <NeonButton type="button" onClick={login} disabled={isLoading} className="mt-2 w-full">{isLoading ? "Routing..." : "Login"}</NeonButton>
+            <NeonButton type="submit" disabled={isLoading} className="mt-2 w-full">{isLoading ? "Routing..." : "Login"}</NeonButton>
             {isLoading ? <LoadingState label="Opening identity lane" /> : null}
           </form>
           <p className="mt-5 text-center text-sm text-white/55">

@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ErrorAlert } from "@/components/Alert";
 import { FormInput } from "@/components/FormInput";
 import { LoadingState } from "@/components/LoadingState";
 import { NeonButton } from "@/components/NeonButton";
 import { ControlChip, GlassPanel, MetricOrb, StatusBeacon } from "@/components/OpsUI";
+import { post } from "@/lib/api";
+import { saveToken, saveUser } from "@/lib/auth";
 import { roleHome, type Role } from "@/lib/roles";
 
 const roles: Exclude<Role, "ADMIN">[] = ["STUDENT", "ORGANIZER", "VOLUNTEER"];
@@ -14,12 +17,29 @@ const roles: Exclude<Role, "ADMIN">[] = ["STUDENT", "ORGANIZER", "VOLUNTEER"];
 export default function RegisterPage() {
   const router = useRouter();
   const [role, setRole] = useState<Exclude<Role, "ADMIN">>("STUDENT");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  function register() {
+  async function register() {
     setIsLoading(true);
-    window.localStorage.setItem("eventpulse-role", role);
-    router.push(roleHome[role]);
+    setError("");
+
+    try {
+      await post("/api/auth/register", { name, email, password, role });
+      const response = await post("/api/auth/login", { email, password });
+      const { token, user } = response.data;
+
+      saveToken(token);
+      saveUser(user);
+      router.push(roleHome[user.role as Role]);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Registration failed");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -33,17 +53,18 @@ export default function RegisterPage() {
             </div>
             <StatusBeacon status="open" label={role} />
           </div>
-          <form className="grid gap-4">
-            <FormInput label="Name" placeholder="Jordan Lee" />
-            <FormInput label="Email" type="email" placeholder="jordan@campus.edu" />
-            <FormInput label="Password" type="password" placeholder="Create a password" />
+          <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); register(); }}>
+            {error ? <ErrorAlert title="Registration failed">{error}</ErrorAlert> : null}
+            <FormInput label="Name" placeholder="Jordan Lee" value={name} onChange={(event) => setName(event.target.value)} />
+            <FormInput label="Email" type="email" placeholder="jordan@campus.edu" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <FormInput label="Password" type="password" placeholder="Create a password" value={password} onChange={(event) => setPassword(event.target.value)} />
             <label className="grid gap-2 text-sm font-bold text-white/75">
               Role
               <select value={role} onChange={(event) => setRole(event.target.value as Exclude<Role, "ADMIN">)} className="min-h-11 rounded-xl border border-cyan-200/14 bg-void px-3 text-white outline-none focus:border-cyan-300/45 focus:ring-4 focus:ring-cyan-300/10">
                 {roles.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            <NeonButton type="button" onClick={register} disabled={isLoading} className="mt-2 w-full">{isLoading ? "Creating..." : "Register"}</NeonButton>
+            <NeonButton type="submit" disabled={isLoading} className="mt-2 w-full">{isLoading ? "Creating..." : "Register"}</NeonButton>
             {isLoading ? <LoadingState label="Preparing role lane" /> : null}
           </form>
           <p className="mt-5 text-center text-sm text-white/55">
@@ -64,4 +85,3 @@ export default function RegisterPage() {
     </main>
   );
 }
-
