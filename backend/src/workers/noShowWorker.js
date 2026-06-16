@@ -9,6 +9,12 @@ const {
   publishWaitlistPromoted,
 } = require("../utils/eventProducer");
 const { withRedisLock } = require("../utils/redisLock");
+const {
+  emitCapacityUpdated,
+  emitNoShowReleased,
+  emitRegistrationUpdated,
+  emitWaitlistUpdated,
+} = require("../utils/socketEmitter");
 
 const GRACE_PERIOD_MINUTES = Number(process.env.NO_SHOW_GRACE_MINUTES) || 15;
 const REGISTRATION_LOCK_TTL_MS = 10_000;
@@ -193,6 +199,13 @@ async function processEvent(event) {
       });
 
       for (const registration of result.released) {
+        emitNoShowReleased(event.id, {
+          registration,
+        });
+        emitRegistrationUpdated(event.id, {
+          action: "no_show",
+          registration,
+        });
         await publishNoShowReleased({
           eventId: event.id,
           userId: registration.userId,
@@ -204,6 +217,14 @@ async function processEvent(event) {
       }
 
       for (const promotion of result.promoted) {
+        emitWaitlistUpdated(event.id, {
+          action: "promoted",
+          waitlistEntry: promotion.waitlistEntry,
+        });
+        emitRegistrationUpdated(event.id, {
+          action: "promoted",
+          registration: promotion.registration,
+        });
         await publishWaitlistPromoted({
           eventId: event.id,
           userId: promotion.waitlistEntry.userId,
@@ -217,6 +238,9 @@ async function processEvent(event) {
 
       await runBestEffort("Redis event counter sync", () =>
         syncEventCountersFromDb(event.id)
+      );
+      await runBestEffort("Socket capacity update", () =>
+        emitCapacityUpdated(event.id)
       );
 
       return result;

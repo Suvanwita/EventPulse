@@ -9,6 +9,11 @@ const { checkRateLimit } = require("../../utils/rateLimiter");
 const { withRedisLock } = require("../../utils/redisLock");
 const { hashQrToken, verifyQrToken } = require("../../utils/qrToken");
 const safeUser = require("../../utils/safeUser");
+const {
+  emitCapacityUpdated,
+  emitCheckinUpdated,
+  emitEntryRateUpdated,
+} = require("../../utils/socketEmitter");
 
 const SCAN_LOCK_TTL_MS = 10_000;
 const SCAN_RATE_LIMIT = 30;
@@ -291,6 +296,18 @@ async function scanQrToken(body, scanner) {
 
   await runBestEffort("Redis checked-in counter increment", () =>
     incrementCheckedIn(result.registration.eventId)
+  );
+  await runBestEffort("Socket capacity update", () =>
+    emitCapacityUpdated(result.registration.eventId)
+  );
+  emitCheckinUpdated(result.registration.eventId, {
+    action: "completed",
+    checkIn: result.checkIn,
+    registrationId: result.registration.id,
+    userId: result.registration.userId,
+  });
+  await runBestEffort("Socket entry rate update", () =>
+    emitEntryRateUpdated(result.registration.eventId)
   );
   await publishCheckinCompleted({
     eventId: result.registration.eventId,

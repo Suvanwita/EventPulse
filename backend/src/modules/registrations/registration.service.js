@@ -17,6 +17,11 @@ const {
   publishWaitlistPromoted,
 } = require("../../utils/eventProducer");
 const { withRedisLock } = require("../../utils/redisLock");
+const {
+  emitCapacityUpdated,
+  emitRegistrationUpdated,
+  emitWaitlistUpdated,
+} = require("../../utils/socketEmitter");
 
 const REGISTRATION_LOCK_TTL_MS = 10_000;
 
@@ -328,6 +333,13 @@ async function registerForEvent(eventId, user) {
         await runBestEffort("Redis registered counter increment", () =>
           incrementRegistered(eventId)
         );
+        await runBestEffort("Socket capacity update", () =>
+          emitCapacityUpdated(eventId)
+        );
+        emitRegistrationUpdated(eventId, {
+          action: "created",
+          registration: result.registration,
+        });
         await publishRegistrationCreated({
           eventId,
           userId: user.id,
@@ -340,6 +352,14 @@ async function registerForEvent(eventId, user) {
         await runBestEffort("Redis waitlist counter increment", () =>
           incrementWaitlist(eventId)
         );
+        await runBestEffort("Socket capacity update", () =>
+          emitCapacityUpdated(eventId)
+        );
+        emitWaitlistUpdated(eventId, {
+          action: "joined",
+          registration: result.registration,
+          waitlistEntry: result.waitlistEntry,
+        });
         await publishWaitlistJoined({
           eventId,
           userId: user.id,
@@ -462,10 +482,18 @@ async function cancelRegistration(eventId, user) {
         await runBestEffort("Redis waitlist counter decrement", () =>
           decrementWaitlist(eventId)
         );
+        emitWaitlistUpdated(eventId, {
+          action: "cancelled",
+          registration: result.cancelledRegistration,
+        });
       } else {
         await runBestEffort("Redis registered counter decrement", () =>
           decrementRegistered(eventId)
         );
+        emitRegistrationUpdated(eventId, {
+          action: "cancelled",
+          registration: result.cancelledRegistration,
+        });
 
         if (result.promoted) {
           await runBestEffort("Redis waitlist counter decrement", () =>
@@ -474,6 +502,14 @@ async function cancelRegistration(eventId, user) {
           await runBestEffort("Redis registered counter increment", () =>
             incrementRegistered(eventId)
           );
+          emitWaitlistUpdated(eventId, {
+            action: "promoted",
+            waitlistEntry: result.promoted.waitlistEntry,
+          });
+          emitRegistrationUpdated(eventId, {
+            action: "promoted",
+            registration: result.promoted.registration,
+          });
           await publishWaitlistPromoted({
             eventId,
             userId: result.promoted.waitlistEntry.userId,
@@ -485,6 +521,10 @@ async function cancelRegistration(eventId, user) {
           });
         }
       }
+
+      await runBestEffort("Socket capacity update", () =>
+        emitCapacityUpdated(eventId)
+      );
 
       await publishRegistrationCancelled({
         eventId,
@@ -585,6 +625,14 @@ async function promoteNext(eventId, user) {
       await runBestEffort("Redis registered counter increment", () =>
         incrementRegistered(eventId)
       );
+      emitWaitlistUpdated(eventId, {
+        action: "promoted",
+        waitlistEntry: result.waitlistEntry,
+      });
+      emitRegistrationUpdated(eventId, {
+        action: "promoted",
+        registration: result.registration,
+      });
       await publishWaitlistPromoted({
         eventId,
         userId: result.waitlistEntry.userId,
@@ -596,6 +644,9 @@ async function promoteNext(eventId, user) {
       });
       await runBestEffort("Redis event counter sync", () =>
         syncEventCountersFromDb(eventId)
+      );
+      await runBestEffort("Socket capacity update", () =>
+        emitCapacityUpdated(eventId)
       );
 
       return result;

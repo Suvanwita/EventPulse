@@ -24,7 +24,7 @@ async function getEventCounters(eventId) {
   };
 }
 
-async function syncEventCountersFromDb(eventId) {
+async function syncEventCountersFromDb(eventId, options = {}) {
   const [registeredCount, checkedInCount, waitlistCount] = await Promise.all([
     prisma.registration.count({
       where: {
@@ -57,6 +57,11 @@ async function syncEventCountersFromDb(eventId) {
     keys.waitlistCount,
     waitlistCount
   );
+
+  if (options.emitSocketUpdate !== false) {
+    const { emitCapacityUpdated } = require("./socketEmitter");
+    await emitCapacityUpdated(eventId);
+  }
 
   return {
     registeredCount,
