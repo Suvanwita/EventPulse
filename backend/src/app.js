@@ -3,6 +3,9 @@ const cors = require("cors");
 const morgan = require("morgan");
 
 const env = require("./config/env");
+const routes = require("./routes");
+const errorMiddleware = require("./middleware/error.middleware");
+const notFoundMiddleware = require("./middleware/notFound.middleware");
 
 const app = express();
 
@@ -13,14 +16,10 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
-app.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "EventPulse backend running",
-  });
-});
+app.use(routes);
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
 
 module.exports = app;
