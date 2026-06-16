@@ -7,7 +7,7 @@ module.exports = defineConfig({
   datasource: {
     url:
       process.env.DATABASE_URL ||
-      "postgresql://eventpulse:eventpulse@localhost:5432/eventpulse?schema=public",
+      "postgresql://eventpulse:eventpulse@localhost:5433/eventpulse?schema=public",
   },
   migrations: {
     seed: "node prisma/seed.js",

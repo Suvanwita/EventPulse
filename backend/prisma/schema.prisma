@@ -5,3 +5,179 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  STUDENT
+  ORGANIZER
+  VOLUNTEER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  WAITLISTED
+  CANCELLED
+  CHECKED_IN
+  NO_SHOW
+}
+
+enum WaitlistStatus {
+  WAITING
+  PROMOTED
+  CANCELLED
+}
+
+enum EventLogType {
+  EVENT_CREATED
+  EVENT_UPDATED
+  REGISTRATION_CREATED
+  WAITLIST_JOINED
+  REGISTRATION_CANCELLED
+  WAITLIST_PROMOTED
+  QR_PASS_GENERATED
+  CHECKIN_SUCCESS
+  CHECKIN_REJECTED
+  NO_SHOW_RELEASED
+  REDIS_COUNTER_SYNCED
+  KAFKA_EVENT_PUBLISHED
+}
+
+model User {
+  id              String          @id @default(uuid())
+  name            String
+  email           String          @unique
+  passwordHash    String
+  role            Role            @default(STUDENT)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  events          Event[]         @relation("EventCreatedBy")
+  registrations   Registration[]
+  waitlistEntries WaitlistEntry[]
+  checkIns        CheckIn[]       @relation("UserCheckIns")
+  scannedCheckIns CheckIn[]       @relation("VolunteerScans")
+
+  @@index([createdAt])
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  name        String
+  location    String
+  zone        String
+  capacity    Int
+  rows        Int
+  seatsPerRow Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      Event[]
+
+  @@index([createdAt])
+}
+
+model Event {
+  id                   String          @id @default(uuid())
+  title                String
+  description          String
+  venueId              String
+  startTime            DateTime
+  endTime              DateTime
+  capacity             Int
+  waitlistCapacity     Int
+  registrationDeadline DateTime
+  status               EventStatus     @default(DRAFT)
+  createdById          String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  venue                Venue           @relation(fields: [venueId], references: [id])
+  createdBy            User            @relation("EventCreatedBy", fields: [createdById], references: [id])
+  registrations        Registration[]
+  waitlistEntries      WaitlistEntry[]
+  checkIns             CheckIn[]
+  logs                 EventLog[]
+
+  @@index([venueId])
+  @@index([startTime])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Registration {
+  id          String             @id @default(uuid())
+  eventId     String
+  userId      String
+  status      RegistrationStatus @default(CONFIRMED)
+  seatNumber  String?
+  qrTokenHash String?
+  checkedInAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  event       Event              @relation(fields: [eventId], references: [id])
+  user        User               @relation(fields: [userId], references: [id])
+  checkIn     CheckIn?
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([checkedInAt])
+}
+
+model WaitlistEntry {
+  id        String         @id @default(uuid())
+  eventId   String
+  userId    String
+  position  Int
+  status    WaitlistStatus @default(WAITING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  event     Event          @relation(fields: [eventId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CheckIn {
+  id             String       @id @default(uuid())
+  eventId        String
+  userId         String
+  registrationId String       @unique
+  scannedById    String
+  gateName       String
+  scannedAt      DateTime     @default(now())
+  event          Event        @relation(fields: [eventId], references: [id])
+  user           User         @relation("UserCheckIns", fields: [userId], references: [id])
+  registration   Registration @relation(fields: [registrationId], references: [id])
+  scannedBy      User         @relation("VolunteerScans", fields: [scannedById], references: [id])
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([scannedById])
+  @@index([scannedAt])
+}
+
+model EventLog {
+  id        String       @id @default(uuid())
+  eventId   String
+  type      EventLogType
+  message   String
+  metadata  Json?
+  createdAt DateTime     @default(now())
+  event     Event        @relation(fields: [eventId], references: [id])
+
+  @@index([eventId])
+  @@index([createdAt])
+}
