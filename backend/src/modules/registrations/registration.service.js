@@ -4,6 +4,7 @@ const prisma = require("../../config/prisma");
 const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const { getFirstAvailableSeat } = require("../../dsa/seatAllocator");
 const { logger } = require("../../observability/logger");
+const { incDomainEvent } = require("../../observability/metrics");
 const ApiError = require("../../utils/ApiError");
 const {
   decrementRegistered,
@@ -378,6 +379,7 @@ async function registerForEvent(eventId, user) {
           action: "created",
           registration: result.registration,
         });
+        incDomainEvent("registration_created");
         await runBestEffort("Notification create", () =>
           createNotification({
             userId: user.id,
@@ -404,6 +406,7 @@ async function registerForEvent(eventId, user) {
           registration: result.registration,
           waitlistEntry: result.waitlistEntry,
         });
+        incDomainEvent("waitlist_joined");
         await runBestEffort("Notification create", () =>
           createNotification({
             userId: user.id,
@@ -583,6 +586,7 @@ async function cancelRegistration(eventId, user) {
           action: "cancelled",
           registration: result.cancelledRegistration,
         });
+        incDomainEvent("registration_cancelled");
       } else {
         await runBestEffort("Redis registered counter decrement", () =>
           decrementRegistered(eventId)
@@ -591,6 +595,7 @@ async function cancelRegistration(eventId, user) {
           action: "cancelled",
           registration: result.cancelledRegistration,
         });
+        incDomainEvent("registration_cancelled");
 
         if (result.promoted) {
           await runBestEffort("Redis waitlist counter decrement", () =>
@@ -607,6 +612,7 @@ async function cancelRegistration(eventId, user) {
             action: "promoted",
             registration: result.promoted.registration,
           });
+          incDomainEvent("waitlist_promoted");
           await runBestEffort("Notification create", () =>
             createNotification({
               userId: result.promoted.waitlistEntry.userId,
@@ -752,6 +758,7 @@ async function promoteNext(eventId, user) {
         action: "promoted",
         registration: result.registration,
       });
+      incDomainEvent("waitlist_promoted");
       await runBestEffort("Notification create", () =>
         createNotification({
           userId: result.waitlistEntry.userId,

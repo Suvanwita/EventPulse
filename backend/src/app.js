@@ -4,6 +4,7 @@ const cors = require("cors");
 const env = require("./config/env");
 const routes = require("./routes");
 const errorMiddleware = require("./middleware/error.middleware");
+const metricsMiddleware = require("./middleware/metrics.middleware");
 const notFoundMiddleware = require("./middleware/notFound.middleware");
 const { createHttpLogger } = require("./observability/logger");
 
@@ -17,6 +18,7 @@ app.use(
 );
 app.use(express.json());
 app.use(createHttpLogger());
+app.use(metricsMiddleware);
 
 app.use(routes);
 app.use(notFoundMiddleware);

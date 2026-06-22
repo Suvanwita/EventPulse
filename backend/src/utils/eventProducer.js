@@ -5,6 +5,7 @@ const {
   validateKafkaMessage,
 } = require("./kafkaSchemas");
 const { logger } = require("../observability/logger");
+const { recordKafkaPublish } = require("../observability/metrics");
 const { withSpan } = require("../observability/spans");
 const {
   enqueueOutboxEvent,
@@ -26,18 +27,24 @@ async function publishKafkaMessage(topic, message, options = {}) {
     const producer = await connectProducer();
     const value = typeof message === "string" ? message : JSON.stringify(message);
 
-    await producer.send({
-      topic,
-      messages: [
-        {
-          key: options.key,
-          value,
-          headers: options.headers,
-        },
-      ],
-    });
+    try {
+      await producer.send({
+        topic,
+        messages: [
+          {
+            key: options.key,
+            value,
+            headers: options.headers,
+          },
+        ],
+      });
+    } catch (error) {
+      recordKafkaPublish(topic, "failure");
+      throw error;
+    }
 
     logger.info({ topic, key: options.key }, "Kafka message published");
+    recordKafkaPublish(topic, "success");
 
     return {
       published: true,

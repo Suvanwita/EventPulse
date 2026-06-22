@@ -339,6 +339,31 @@ When `OTEL_ENABLED=true`, EventPulse auto-instruments Node HTTP/Express, Postgre
 
 For local traces, start an OTLP-compatible collector and set `OTEL_ENABLED=true` plus `OTEL_EXPORTER_OTLP_ENDPOINT`. Without an endpoint, tracing can still be enabled for local context propagation, but spans are not exported.
 
+## Prometheus Metrics
+
+The backend exposes Prometheus metrics at `GET /metrics` using `prom-client`.
+
+Metrics include default Node.js process metrics plus:
+- HTTP request count and duration by method, normalized route pattern, and status.
+- Domain counters for registrations, waitlist joins/promotions, cancellations, check-ins, scan failures, crew access changes, notifications, and no-show releases.
+- Kafka publish success/failure counters by topic.
+- Outbox enqueue/publish/retry/failure counters, current outbox status gauges, and oldest pending outbox age.
+- BullMQ job completed/failed counters by queue and job name.
+- Optional BullMQ queue state gauges when `PROMETHEUS_BULLMQ_QUEUE_GAUGES=true`.
+- Idempotency started/completed/replayed/conflict/in-flight/failure counters.
+
+Metric labels are intentionally low-cardinality and do not include user IDs, event IDs, request IDs, or raw request paths.
+
+Local Prometheus scrape example:
+
+```yaml
+scrape_configs:
+  - job_name: eventpulse-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["localhost:4000"]
+```
+
 ## Demo Credentials
 
 All seeded users use password `password123`.

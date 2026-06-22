@@ -2,6 +2,7 @@ const prisma = require("../../config/prisma");
 const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const redis = require("../../config/redis");
 const { logger } = require("../../observability/logger");
+const { incDomainEvent } = require("../../observability/metrics");
 const ApiError = require("../../utils/ApiError");
 const safeUser = require("../../utils/safeUser");
 const {
@@ -164,6 +165,7 @@ async function createCrewAccess(eventId, data, assignedBy) {
     gateName: access.gateName,
     note: access.note,
   });
+  incDomainEvent("crew_access_granted");
   await runBestEffort("Notification create", () =>
     createNotification({
       userId: access.userId,
@@ -289,6 +291,7 @@ async function updateCrewAccess(eventId, crewAccessId, data, user) {
     gateName: access.gateName,
     note: access.note,
   });
+  incDomainEvent("crew_access_updated");
   if (data.isActive !== false) {
     await runBestEffort("Notification create", () =>
       createNotification({
@@ -360,6 +363,7 @@ async function revokeCrewAccess(eventId, crewAccessId, user) {
     gateName: access.gateName,
     note: access.note,
   });
+  incDomainEvent("crew_access_revoked");
   await runBestEffort("Notification create", () =>
     createNotification({
       userId: access.userId,

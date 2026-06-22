@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const prisma = require("../config/prisma");
 const redis = require("../config/redis");
 const { logger } = require("../observability/logger");
+const { incDomainEvent } = require("../observability/metrics");
 const { getFirstAvailableSeat } = require("../dsa/seatAllocator");
 const { syncEventCountersFromDb } = require("../utils/eventCounters");
 const {
@@ -233,6 +234,7 @@ async function processEvent(event) {
           action: "no_show",
           registration,
         });
+        incDomainEvent("no_show_released");
       }
 
       for (const promotion of result.promoted) {
@@ -244,6 +246,7 @@ async function processEvent(event) {
           action: "promoted",
           registration: promotion.registration,
         });
+        incDomainEvent("waitlist_promoted");
       }
 
       await runBestEffort("Redis event counter sync", () =>

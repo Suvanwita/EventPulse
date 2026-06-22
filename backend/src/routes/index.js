@@ -7,6 +7,7 @@ const eventRoutes = require("../modules/events/event.routes");
 const notificationRoutes = require("../modules/notifications/notification.routes");
 const searchRoutes = require("../modules/search/search.routes");
 const venueRoutes = require("../modules/venues/venue.routes");
+const { register: metricsRegister } = require("../observability/metrics");
 const response = require("../utils/response");
 
 const router = express.Router();
@@ -21,6 +22,15 @@ router.use("/api/venues", venueRoutes);
 
 router.get("/health", (req, res) => {
   return response.success(res, 200, "EventPulse backend running");
+});
+
+router.get("/metrics", async (req, res, next) => {
+  try {
+    res.set("Content-Type", metricsRegister.contentType);
+    return res.send(await metricsRegister.metrics());
+  } catch (error) {
+    return next(error);
+  }
 });
 
 module.exports = router;

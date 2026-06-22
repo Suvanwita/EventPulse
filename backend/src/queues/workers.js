@@ -6,6 +6,7 @@ const prisma = require("../config/prisma");
 const redis = require("../config/redis");
 const { disconnectProducer } = require("../config/kafka");
 const { logger } = require("../observability/logger");
+const { recordBullMQJob } = require("../observability/metrics");
 const { shutdownTracing } = require("../observability/tracing");
 const { withSpan } = require("../observability/spans");
 const { getBullConnection } = require("./connection");
@@ -41,6 +42,7 @@ function createWorker(queueName) {
   });
 
   worker.on("completed", (job, result) => {
+    recordBullMQJob(queueName, job.name, "completed");
     logger.info({
       queue: queueName,
       jobId: job.id,
@@ -50,6 +52,7 @@ function createWorker(queueName) {
   });
 
   worker.on("failed", (job, error) => {
+    recordBullMQJob(queueName, job?.name || "unknown", "failed");
     logger.error({
       queue: queueName,
       jobId: job?.id,

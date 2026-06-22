@@ -1,5 +1,6 @@
 const prisma = require("../config/prisma");
 const { logger } = require("../observability/logger");
+const { recordOutboxEvent } = require("../observability/metrics");
 const {
   formatKafkaValidationError,
   validateKafkaMessage,
@@ -48,6 +49,7 @@ async function enqueueOutboxEvent(client, topic, payload, options = {}) {
     topic,
     key: outboxEvent.key,
   }, "Kafka outbox event enqueued");
+  recordOutboxEvent("enqueued");
 
   return outboxEvent;
 }
@@ -68,6 +70,7 @@ async function safeEnqueueOutboxEvent(client, topic, payload, options = {}) {
       error,
       validation: formatKafkaValidationError(error),
     }, "Kafka outbox enqueue failed");
+    recordOutboxEvent("enqueue_failed");
 
     return {
       enqueued: false,

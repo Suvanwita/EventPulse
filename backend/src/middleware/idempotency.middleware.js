@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/ApiError");
 const { logger } = require("../observability/logger");
+const { recordIdempotency } = require("../observability/metrics");
 
 const IDEMPOTENCY_STATUS = {
   PROCESSING: "PROCESSING",
@@ -81,6 +82,7 @@ function captureSuccessfulResponse(req, res, recordId) {
             error: null,
           },
         });
+        recordIdempotency("completed");
       } catch (error) {
         logger.error({
           error,
@@ -136,20 +138,24 @@ function idempotencyMiddleware(options = {}) {
           res.set("Idempotency-Key", key);
 
           if (existing.requestFingerprint !== requestFingerprint) {
+            recordIdempotency("conflict");
             throw new ApiError(409, "Idempotency-Key was reused with a different request");
           }
 
           if (existing.status === IDEMPOTENCY_STATUS.COMPLETED && existing.responseBody) {
+            recordIdempotency("replayed");
             return replayResponse(res, existing);
           }
 
           if (existing.status === IDEMPOTENCY_STATUS.FAILED) {
+            recordIdempotency("retry_after_failure");
             await prisma.idempotencyKey.delete({
               where: {
                 id: existing.id,
               },
             });
           } else {
+            recordIdempotency("in_flight");
             throw new ApiError(PROCESSING_REPLAY_STATUS, "Idempotent request is still processing");
           }
         }
@@ -169,6 +175,7 @@ function idempotencyMiddleware(options = {}) {
       req.idempotencyRecordId = record.id;
       res.set("Idempotency-Key", key);
       captureSuccessfulResponse(req, res, record.id);
+      recordIdempotency("started");
 
       return next();
     } catch (error) {
@@ -181,6 +188,8 @@ async function markIdempotencyFailed(recordId, error) {
   if (!recordId) {
     return null;
   }
+
+  recordIdempotency("failed");
 
   return prisma.idempotencyKey.update({
     where: {

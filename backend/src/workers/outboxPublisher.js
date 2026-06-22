@@ -4,6 +4,7 @@ const prisma = require("../config/prisma");
 const redis = require("../config/redis");
 const { disconnectProducer } = require("../config/kafka");
 const { logger } = require("../observability/logger");
+const { recordOutboxEvent } = require("../observability/metrics");
 const { shutdownTracing } = require("../observability/tracing");
 const { withSpan } = require("../observability/spans");
 const { publishKafkaMessage } = require("../utils/eventProducer");
@@ -104,6 +105,7 @@ async function markPublished(outboxEvent) {
       error: null,
     },
   });
+  recordOutboxEvent("published");
 }
 
 async function markFailedOrRetry(outboxEvent, error) {
@@ -123,6 +125,7 @@ async function markFailedOrRetry(outboxEvent, error) {
       error: serializeError(error),
     },
   });
+  recordOutboxEvent(exhausted ? "failed" : "retry_scheduled");
 
   logger.error({
     error,

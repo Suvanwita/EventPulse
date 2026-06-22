@@ -1,6 +1,7 @@
 const prisma = require("../../config/prisma");
 const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const { logger } = require("../../observability/logger");
+const { incDomainEvent } = require("../../observability/metrics");
 const ApiError = require("../../utils/ApiError");
 const { incrementCheckedIn } = require("../../utils/eventCounters");
 const {
@@ -121,6 +122,7 @@ async function recordRejectedScan({ eventId, userId, registrationId, scanner, re
       ...metadata,
     },
   });
+  incDomainEvent("scan_failed");
 }
 
 async function rejectScan(context, statusCode, reason) {
@@ -506,6 +508,7 @@ async function scanQrToken(body, scanner) {
     registrationId: result.registration?.id || null,
     userId: result.checkIn.userId,
   });
+  incDomainEvent("checkin_completed");
   await runBestEffort("Socket entry rate update", () =>
     emitEntryRateUpdated(result.checkIn.eventId)
   );
@@ -536,6 +539,7 @@ async function scanQrToken(body, scanner) {
       gateName,
       note: result.crewAccess.note,
     });
+    incDomainEvent("crew_special_entry_used");
   }
 
   const registration = result.registration
@@ -659,6 +663,8 @@ async function specialEntry(body, scanner) {
     gateName,
     note: result.crewAccess.note,
   });
+  incDomainEvent("checkin_completed");
+  incDomainEvent("crew_special_entry_used");
   await runBestEffort("Notification create", () =>
     createNotification({
       userId,

@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { incDomainEvent } = require("../../observability/metrics");
 const ApiError = require("../../utils/ApiError");
 const { emitNotificationCreated, emitNotificationRead } = require("../../utils/socketEmitter");
 
@@ -49,6 +50,7 @@ async function createNotification({
     notification: serializeNotification(notification),
     unreadCount,
   });
+  incDomainEvent("notification_created");
 
   return notification;
 }
@@ -126,6 +128,7 @@ async function markNotificationRead(notificationId, user) {
     notificationId,
     unreadCount,
   });
+  incDomainEvent("notification_read");
 
   return serializeNotification(updated);
 }
@@ -145,6 +148,7 @@ async function markAllRead(user) {
     notificationId: null,
     unreadCount: 0,
   });
+  incDomainEvent("notifications_read_all");
 
   return {
     updatedCount: result.count,
