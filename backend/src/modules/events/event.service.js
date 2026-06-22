@@ -2,6 +2,7 @@ const prisma = require("../../config/prisma");
 const { hasOverlap } = require("../../dsa/intervalScheduler");
 const ApiError = require("../../utils/ApiError");
 const safeUser = require("../../utils/safeUser");
+const { scheduleEventLifecycleJobs } = require("../../queues/scheduler");
 const { EVENT_STATUSES } = require("./event.validation");
 
 function canModifyEvent(event, user) {
@@ -70,7 +71,7 @@ async function assertEventRules(data, options = {}) {
 async function createEvent(data, user) {
   await assertEventRules(data);
 
-  return prisma.$transaction(async (tx) => {
+  const event = await prisma.$transaction(async (tx) => {
     const event = await tx.event.create({
       data: {
         ...data,
@@ -91,6 +92,12 @@ async function createEvent(data, user) {
 
     return event;
   });
+
+  await scheduleEventLifecycleJobs(event).catch((error) => {
+    console.error("BullMQ event lifecycle scheduling failed:", error);
+  });
+
+  return event;
 }
 
 function buildEventWhere(query, user) {
@@ -225,12 +232,18 @@ async function updateEvent(id, data, user) {
     excludeEventId: id,
   });
 
-  return prisma.event.update({
+  const event = await prisma.event.update({
     where: {
       id,
     },
     data,
   });
+
+  await scheduleEventLifecycleJobs(event).catch((error) => {
+    console.error("BullMQ event lifecycle rescheduling failed:", error);
+  });
+
+  return event;
 }
 
 async function deleteEvent(id, user) {

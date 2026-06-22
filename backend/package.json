@@ -11,6 +11,8 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "consumer:kafka": "node src/consumers/index.js",
+    "scheduler:bullmq": "node src/queues/scheduler.js",
+    "worker:bullmq": "node src/queues/workers.js",
     "worker:noshow": "node src/workers/noShowWorker.js",
     "worker:analytics": "node src/workers/analyticsWorker.js"
   },
@@ -22,6 +24,7 @@
     "@prisma/client": "^7.8.0",
     "ajv": "^8.20.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.79.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

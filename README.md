@@ -223,18 +223,39 @@ Organizers can assign selected students as event-specific organizers, crew membe
 
 ## Workers
 
-Run manually for now:
+Run manual workers or queue-backed workers:
 
 ```bash
 cd backend
 npm run worker:noshow
 npm run worker:analytics
 npm run consumer:kafka
+npm run scheduler:bullmq
+npm run worker:bullmq
 ```
 
 `worker:noshow` marks unscanned confirmed registrations as `NO_SHOW` after a grace period, releases seats, promotes waitlisted users, updates counters, and publishes Kafka events.
 
 `worker:analytics` computes aggregate event, venue, and check-in metrics and logs them.
+
+## BullMQ Usage
+
+BullMQ is used for scheduled and retryable background jobs on top of the existing Redis service. Kafka remains the async domain-event stream; BullMQ handles jobs that need retries, delays, or repeat schedules.
+
+Queues:
+- `eventpulse-event-lifecycle`
+- `eventpulse-notifications`
+- `eventpulse-analytics`
+
+Job types:
+- `event-no-show-release` runs after event start plus `NO_SHOW_GRACE_MINUTES`.
+- `process-no-shows` repeats every `NO_SHOW_REPEAT_MS` as a safety sweep.
+- `registration-deadline-reminder` creates organizer in-app reminder jobs before registration closes.
+- `event-start-reminder` creates attendee in-app reminder jobs before event start.
+- `create-notification` writes in-app notifications through the notification service.
+- `analytics-aggregate` repeats every `ANALYTICS_REPEAT_MS`.
+
+Run `npm run scheduler:bullmq` once during deployment or local boot to register repeatable jobs and delayed jobs for upcoming events. Run `npm run worker:bullmq` as a long-running worker process. Jobs use exponential backoff, bounded completed/failed retention, and stable job IDs for event reminders so event updates replace pending schedules.
 
 ## Demo Credentials
 
