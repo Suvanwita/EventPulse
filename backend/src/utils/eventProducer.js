@@ -14,6 +14,18 @@ const TOPICS = {
   CREW_SPECIAL_ENTRY_USED: "eventpulse.crew.special_entry_used",
 };
 
+const RETRY_TOPICS = {
+  REGISTRATION: "eventpulse.retry.registration",
+  CHECKIN: "eventpulse.retry.checkin",
+  CREW: "eventpulse.retry.crew",
+};
+
+const DLQ_TOPICS = {
+  REGISTRATION: "eventpulse.dlq.registration",
+  CHECKIN: "eventpulse.dlq.checkin",
+  CREW: "eventpulse.dlq.crew",
+};
+
 function normalizePayload(payload = {}) {
   return {
     eventId: payload.eventId,
@@ -24,19 +36,33 @@ function normalizePayload(payload = {}) {
   };
 }
 
+async function publishKafkaMessage(topic, message, options = {}) {
+  const producer = await connectProducer();
+  const value = typeof message === "string" ? message : JSON.stringify(message);
+
+  await producer.send({
+    topic,
+    messages: [
+      {
+        key: options.key,
+        value,
+        headers: options.headers,
+      },
+    ],
+  });
+
+  return {
+    published: true,
+    topic,
+  };
+}
+
 async function publishEvent(topic, payload) {
   try {
-    const producer = await connectProducer();
     const message = normalizePayload(payload);
 
-    await producer.send({
-      topic,
-      messages: [
-        {
-          key: message.eventId || message.userId || undefined,
-          value: JSON.stringify(message),
-        },
-      ],
+    await publishKafkaMessage(topic, message, {
+      key: message.eventId || message.userId || undefined,
     });
 
     return {
@@ -100,7 +126,10 @@ function publishCrewSpecialEntryUsed(payload) {
 }
 
 module.exports = {
+  DLQ_TOPICS,
+  RETRY_TOPICS,
   TOPICS,
+  publishKafkaMessage,
   publishEvent,
   publishCrewAccessGranted,
   publishCrewAccessRevoked,

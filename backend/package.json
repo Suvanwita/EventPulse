@@ -10,6 +10,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
+    "consumer:kafka": "node src/consumers/index.js",
     "worker:noshow": "node src/workers/noShowWorker.js",
     "worker:analytics": "node src/workers/analyticsWorker.js"
   },

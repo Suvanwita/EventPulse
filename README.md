@@ -162,6 +162,36 @@ Topics:
 - `eventpulse.checkin.completed`
 - `eventpulse.security.scan_failed`
 - `eventpulse.no_show.released`
+- `eventpulse.crew.access_granted`
+- `eventpulse.crew.access_updated`
+- `eventpulse.crew.access_revoked`
+- `eventpulse.crew.special_entry_used`
+
+Kafka consumers run in dedicated consumer groups:
+- `eventpulse-registration-consumer`
+- `eventpulse-checkin-consumer`
+- `eventpulse-crew-consumer`
+
+Run them locally with:
+
+```bash
+cd backend
+npm run consumer:kafka
+```
+
+Consumer processing keeps PostgreSQL as the source of truth. Handlers verify referenced records, resync Redis counters for capacity-affecting topics, and write event-scoped audit logs.
+
+Retry topics:
+- `eventpulse.retry.registration`
+- `eventpulse.retry.checkin`
+- `eventpulse.retry.crew`
+
+Dead-letter topics:
+- `eventpulse.dlq.registration`
+- `eventpulse.dlq.checkin`
+- `eventpulse.dlq.crew`
+
+Failed messages are wrapped with the original topic, original payload, original timestamp, attempt count, retry timestamp, consumer group, and serialized error. After `KAFKA_CONSUMER_MAX_ATTEMPTS`, the message is moved to the matching DLQ topic.
 
 ## Concurrency And Synchronization
 
@@ -185,6 +215,7 @@ Run manually for now:
 cd backend
 npm run worker:noshow
 npm run worker:analytics
+npm run consumer:kafka
 ```
 
 `worker:noshow` marks unscanned confirmed registrations as `NO_SHOW` after a grace period, releases seats, promotes waitlisted users, updates counters, and publishes Kafka events.
