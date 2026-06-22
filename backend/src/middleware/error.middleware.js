@@ -1,7 +1,8 @@
 const ApiError = require("../utils/ApiError");
 const { logger } = require("../observability/logger");
+const { markIdempotencyFailed } = require("./idempotency.middleware");
 
-function errorMiddleware(error, req, res, next) {
+async function errorMiddleware(error, req, res, next) {
   const statusCode = error.statusCode || 500;
   const message =
     error instanceof ApiError || statusCode < 500
@@ -18,6 +19,14 @@ function errorMiddleware(error, req, res, next) {
     },
     "Request failed"
   );
+
+  await markIdempotencyFailed(req.idempotencyRecordId, error).catch((idempotencyError) => {
+    logger.error({
+      error: idempotencyError,
+      requestId: req.id,
+      idempotencyRecordId: req.idempotencyRecordId,
+    }, "Failed to mark idempotent request as failed");
+  });
 
   return res.status(statusCode).json({
     success: false,

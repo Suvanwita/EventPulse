@@ -112,6 +112,37 @@ Backend authorization is centralized with CASL in `backend/src/authorization/abi
 
 Admins can manage all resources. Organizers can create events and manage owned event resources. Volunteers can scan and read operational entry data. Students can register, cancel, read their own passes, and read their own notifications. PostgreSQL remains the source of truth for ownership checks before object-level CASL authorization is evaluated.
 
+## Idempotency Keys
+
+High-risk write endpoints require an `Idempotency-Key` header so client retries do not repeat side effects. EventPulse stores the key, authenticated user, route, method, request fingerprint, response status/body, and expiry in PostgreSQL. Matching retries replay the original successful response with `Idempotency-Replayed: true`; reusing the same key with a different request returns `409`.
+
+Protected endpoints using idempotency:
+- `POST /api/events/:id/register`
+- `POST /api/events/:id/cancel`
+- `POST /api/events/:id/promote-next`
+- `POST /api/events/:id/checkins/scan`
+- `POST /api/events/:id/checkins/special-entry`
+- `POST /api/events/:id/crew`
+- `PATCH /api/events/:id/crew/:crewAccessId`
+- `DELETE /api/events/:id/crew/:crewAccessId`
+- `PATCH /api/notifications/:id/read`
+- `PATCH /api/notifications/read-all`
+
+Example:
+
+```bash
+curl -X POST http://localhost:4000/api/events/event-id/register \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: register-event-id-user-id-1"
+```
+
+Keys expire after `IDEMPOTENCY_KEY_TTL_SECONDS` seconds, defaulting to 24 hours. Clean expired rows with:
+
+```bash
+cd backend
+npm run cleanup:idempotency
+```
+
 ## Registration Flow
 
 Students register for `OPEN` or `LIVE` events before `registrationDeadline`. Registration uses Redis lock `lock:event:{eventId}:registration` and a Prisma transaction to prevent overbooking. If capacity is available, the system allocates the first available seat and creates a `CONFIRMED` registration.

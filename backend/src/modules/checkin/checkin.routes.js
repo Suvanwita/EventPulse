@@ -1,6 +1,7 @@
 const express = require("express");
 
 const authMiddleware = require("../../middleware/auth.middleware");
+const { idempotencyMiddleware } = require("../../middleware/idempotency.middleware");
 const validateRequest = require("../../middleware/validateRequest.middleware");
 const { ACTIONS, SUBJECTS } = require("../../authorization/ability");
 const { requireAbility } = require("../../middleware/role.middleware");
@@ -16,6 +17,7 @@ router.post(
   authMiddleware,
   requireAbility(ACTIONS.SCAN, SUBJECTS.CHECK_IN),
   validateRequest(schemas.checkin.scan),
+  idempotencyMiddleware(),
   checkinController.scanQrToken
 );
 
@@ -24,6 +26,7 @@ router.post(
   authMiddleware,
   requireAbility(ACTIONS.SCAN, SUBJECTS.CHECK_IN),
   validateRequest(schemas.checkin.specialEntry),
+  idempotencyMiddleware(),
   checkinController.specialEntry
 );
 

@@ -1,6 +1,7 @@
 const express = require("express");
 
 const authMiddleware = require("../../middleware/auth.middleware");
+const { idempotencyMiddleware } = require("../../middleware/idempotency.middleware");
 const validateRequest = require("../../middleware/validateRequest.middleware");
 const notificationController = require("./notification.controller");
 const schemas = require("../../validation/requestSchemas");
@@ -11,7 +12,7 @@ router.use(authMiddleware);
 
 router.get("/", validateRequest(schemas.notifications.list), notificationController.listNotifications);
 router.get("/unread-count", notificationController.getUnreadCount);
-router.patch("/read-all", notificationController.markAllRead);
-router.patch("/:id/read", validateRequest(schemas.notifications.id), notificationController.markNotificationRead);
+router.patch("/read-all", idempotencyMiddleware(), notificationController.markAllRead);
+router.patch("/:id/read", validateRequest(schemas.notifications.id), idempotencyMiddleware(), notificationController.markNotificationRead);
 
 module.exports = router;
