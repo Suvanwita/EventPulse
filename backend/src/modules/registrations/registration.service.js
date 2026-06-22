@@ -236,6 +236,18 @@ async function registerForEvent(eventId, user) {
             },
           });
 
+          await publishRegistrationCreated(
+            {
+              eventId,
+              userId: user.id,
+              registrationId: registration.id,
+              metadata: {
+                seatNumber: registration.seatNumber,
+              },
+            },
+            { tx }
+          );
+
           return {
             outcome: "CONFIRMED",
             registration,
@@ -331,6 +343,19 @@ async function registerForEvent(eventId, user) {
           },
         });
 
+        await publishWaitlistJoined(
+          {
+            eventId,
+            userId: user.id,
+            registrationId: registration.id,
+            metadata: {
+              waitlistEntryId: waitlistEntry.id,
+              position: waitlistEntry.position,
+            },
+          },
+          { tx }
+        );
+
         return {
           outcome: "WAITLISTED",
           registration,
@@ -352,14 +377,6 @@ async function registerForEvent(eventId, user) {
         emitRegistrationUpdated(eventId, {
           action: "created",
           registration: result.registration,
-        });
-        await publishRegistrationCreated({
-          eventId,
-          userId: user.id,
-          registrationId: result.registration.id,
-          metadata: {
-            seatNumber: result.registration.seatNumber,
-          },
         });
         await runBestEffort("Notification create", () =>
           createNotification({
@@ -386,15 +403,6 @@ async function registerForEvent(eventId, user) {
           action: "joined",
           registration: result.registration,
           waitlistEntry: result.waitlistEntry,
-        });
-        await publishWaitlistJoined({
-          eventId,
-          userId: user.id,
-          registrationId: result.registration.id,
-          metadata: {
-            waitlistEntryId: result.waitlistEntry.id,
-            position: result.waitlistEntry.position,
-          },
         });
         await runBestEffort("Notification create", () =>
           createNotification({
@@ -476,6 +484,18 @@ async function cancelRegistration(eventId, user) {
             },
           });
 
+          await publishRegistrationCancelled(
+            {
+              eventId,
+              userId: user.id,
+              registrationId: cancelledRegistration.id,
+              metadata: {
+                promotedRegistrationId: null,
+              },
+            },
+            { tx }
+          );
+
           return {
             cancelledRegistration,
             promoted: null,
@@ -516,6 +536,33 @@ async function cancelRegistration(eventId, user) {
         const promoted = freedSeat
           ? await promoteNextWaitlistEntry(tx, event, freedSeat)
           : null;
+
+        await publishRegistrationCancelled(
+          {
+            eventId,
+            userId: user.id,
+            registrationId: cancelledRegistration.id,
+            metadata: {
+              promotedRegistrationId: promoted?.registration.id || null,
+            },
+          },
+          { tx }
+        );
+
+        if (promoted) {
+          await publishWaitlistPromoted(
+            {
+              eventId,
+              userId: promoted.waitlistEntry.userId,
+              registrationId: promoted.registration.id,
+              metadata: {
+                waitlistEntryId: promoted.waitlistEntry.id,
+                seatNumber: promoted.registration.seatNumber,
+              },
+            },
+            { tx }
+          );
+        }
 
         return {
           cancelledRegistration,
@@ -560,15 +607,6 @@ async function cancelRegistration(eventId, user) {
             action: "promoted",
             registration: result.promoted.registration,
           });
-          await publishWaitlistPromoted({
-            eventId,
-            userId: result.promoted.waitlistEntry.userId,
-            registrationId: result.promoted.registration.id,
-            metadata: {
-              waitlistEntryId: result.promoted.waitlistEntry.id,
-              seatNumber: result.promoted.registration.seatNumber,
-            },
-          });
           await runBestEffort("Notification create", () =>
             createNotification({
               userId: result.promoted.waitlistEntry.userId,
@@ -591,14 +629,6 @@ async function cancelRegistration(eventId, user) {
         emitCapacityUpdated(eventId)
       );
 
-      await publishRegistrationCancelled({
-        eventId,
-        userId: user.id,
-        registrationId: result.cancelledRegistration.id,
-        metadata: {
-          promotedRegistrationId: result.promoted?.registration.id || null,
-        },
-      });
       await runBestEffort("Notification create", () =>
         createNotification({
           userId: user.id,
@@ -692,6 +722,19 @@ async function promoteNext(eventId, user) {
           throw new ApiError(404, "No waiting waitlist entries found");
         }
 
+        await publishWaitlistPromoted(
+          {
+            eventId,
+            userId: promoted.waitlistEntry.userId,
+            registrationId: promoted.registration.id,
+            metadata: {
+              waitlistEntryId: promoted.waitlistEntry.id,
+              seatNumber: promoted.registration.seatNumber,
+            },
+          },
+          { tx }
+        );
+
         return promoted;
       });
 
@@ -708,15 +751,6 @@ async function promoteNext(eventId, user) {
       emitRegistrationUpdated(eventId, {
         action: "promoted",
         registration: result.registration,
-      });
-      await publishWaitlistPromoted({
-        eventId,
-        userId: result.waitlistEntry.userId,
-        registrationId: result.registration.id,
-        metadata: {
-          waitlistEntryId: result.waitlistEntry.id,
-          seatNumber: result.registration.seatNumber,
-        },
       });
       await runBestEffort("Notification create", () =>
         createNotification({

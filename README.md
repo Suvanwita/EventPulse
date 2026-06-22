@@ -164,6 +164,28 @@ EventPulse stores per-user notifications for registration confirmations, waitlis
 
 Kafka is used for async streams, not source-of-truth storage. Publish failures are logged and do not crash API requests.
 
+Domain services write Kafka messages through a transactional outbox table before Kafka publish. State changes such as registrations, cancellations, waitlist promotions, check-ins, no-show releases, and crew access updates create `OutboxEvent` rows in the same Prisma transaction as the PostgreSQL mutation. A separate publisher worker reads pending rows, publishes them to Kafka, and marks them as published only after Kafka acknowledges the send.
+
+Run the outbox publisher locally with:
+
+```bash
+cd backend
+npm run publisher:outbox
+```
+
+Outbox retries use exponential backoff. Configure them with:
+
+```bash
+OUTBOX_MAX_ATTEMPTS=10
+OUTBOX_PUBLISH_BATCH_SIZE=25
+OUTBOX_PUBLISH_POLL_INTERVAL_MS=2500
+OUTBOX_PUBLISH_BASE_BACKOFF_MS=1000
+OUTBOX_PUBLISH_MAX_BACKOFF_MS=60000
+OUTBOX_PROCESSING_TIMEOUT_MS=300000
+```
+
+Published Kafka messages preserve the existing topic names and JSON payload shape. The publisher adds Kafka headers `eventpulse-outbox-id` and `eventpulse-outbox-attempt` so consumers can de-duplicate if needed. Delivery is at least once: if the process crashes after Kafka accepts a message but before PostgreSQL marks the row as published, the publisher may retry that same outbox row.
+
 Topics:
 - `eventpulse.registration.created`
 - `eventpulse.waitlist.joined`

@@ -294,6 +294,35 @@ async function scanQrToken(body, scanner) {
               },
             });
 
+            await publishCheckinCompleted(
+              {
+                eventId: payload.eventId,
+                userId: payload.userId,
+                registrationId: null,
+                metadata: {
+                  checkInId: checkIn.id,
+                  scannedById: scanner.id,
+                  gateName,
+                },
+              },
+              { tx }
+            );
+
+            await publishCrewSpecialEntryUsed(
+              {
+                eventId: payload.eventId,
+                userId: payload.userId,
+                registrationId: null,
+                metadata: {
+                  checkInId: checkIn.id,
+                  crewAccessId: crewAccess.id,
+                  gateName,
+                  gateMatched: crewAccess.gateName === gateName,
+                },
+              },
+              { tx }
+            );
+
             return {
               checkIn,
               registration: null,
@@ -404,6 +433,37 @@ async function scanQrToken(body, scanner) {
             },
           });
 
+          await publishCheckinCompleted(
+            {
+              eventId: registration.eventId,
+              userId: registration.userId,
+              registrationId: registration.id,
+              metadata: {
+                checkInId: checkIn.id,
+                scannedById: scanner.id,
+                gateName,
+              },
+            },
+            { tx }
+          );
+
+          if (crewAccess) {
+            await publishCrewSpecialEntryUsed(
+              {
+                eventId: registration.eventId,
+                userId: registration.userId,
+                registrationId: registration.id,
+                metadata: {
+                  checkInId: checkIn.id,
+                  crewAccessId: crewAccess.id,
+                  gateName,
+                  gateMatched: crewAccess.gateName === gateName,
+                },
+              },
+              { tx }
+            );
+          }
+
           return {
             checkIn,
             registration: updatedRegistration,
@@ -449,16 +509,6 @@ async function scanQrToken(body, scanner) {
   await runBestEffort("Socket entry rate update", () =>
     emitEntryRateUpdated(result.checkIn.eventId)
   );
-  await publishCheckinCompleted({
-    eventId: result.checkIn.eventId,
-    userId: result.checkIn.userId,
-    registrationId: result.registration?.id || null,
-    metadata: {
-      checkInId: result.checkIn.id,
-      scannedById: scanner.id,
-      gateName,
-    },
-  });
   await runBestEffort("Notification create", () =>
     createNotification({
       userId: result.checkIn.userId,
@@ -485,17 +535,6 @@ async function scanQrToken(body, scanner) {
       accessType: result.crewAccess.accessType,
       gateName,
       note: result.crewAccess.note,
-    });
-    await publishCrewSpecialEntryUsed({
-      eventId: result.checkIn.eventId,
-      userId: result.checkIn.userId,
-      registrationId: result.registration?.id || null,
-      metadata: {
-        checkInId: result.checkIn.id,
-        crewAccessId: result.crewAccess.id,
-        gateName,
-        gateMatched: crewScanFields.gateMatched,
-      },
     });
   }
 
@@ -589,6 +628,21 @@ async function specialEntry(body, scanner) {
       },
     });
 
+    await publishCrewSpecialEntryUsed(
+      {
+        eventId,
+        userId,
+        metadata: {
+          checkInId: checkIn.id,
+          crewAccessId: crewAccess.id,
+          gateName,
+          gateMatched: crewAccess.gateName === gateName,
+          manual: true,
+        },
+      },
+      { tx }
+    );
+
     return {
       checkIn,
       event: crewAccess.event,
@@ -604,17 +658,6 @@ async function specialEntry(body, scanner) {
     accessType: result.crewAccess.accessType,
     gateName,
     note: result.crewAccess.note,
-  });
-  await publishCrewSpecialEntryUsed({
-    eventId,
-    userId,
-    metadata: {
-      checkInId: result.checkIn.id,
-      crewAccessId: result.crewAccess.id,
-      gateName,
-      gateMatched: crewScanFields.gateMatched,
-      manual: true,
-    },
   });
   await runBestEffort("Notification create", () =>
     createNotification({

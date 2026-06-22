@@ -262,3 +262,26 @@ model EventLog {
   @@index([eventId])
   @@index([createdAt])
 }
+
+model OutboxEvent {
+  id            String    @id @default(uuid())
+  topic         String
+  key           String?
+  payload       Json
+  headers       Json?
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(10)
+  nextAttemptAt DateTime  @default(now())
+  lockedAt      DateTime?
+  publishedAt   DateTime?
+  failedAt      DateTime?
+  error         Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([topic])
+  @@index([publishedAt])
+  @@index([createdAt])
+}

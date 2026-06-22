@@ -11,6 +11,7 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "consumer:kafka": "node src/consumers/index.js",
+    "publisher:outbox": "node src/workers/outboxPublisher.js",
     "scheduler:bullmq": "node src/queues/scheduler.js",
     "worker:bullmq": "node src/queues/workers.js",
     "worker:noshow": "node src/workers/noShowWorker.js",

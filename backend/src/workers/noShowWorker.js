@@ -184,12 +184,36 @@ async function processEvent(event) {
             },
           });
 
+          await publishNoShowReleased(
+            {
+              eventId: currentEvent.id,
+              userId: updatedRegistration.userId,
+              registrationId: updatedRegistration.id,
+              metadata: {
+                status: updatedRegistration.status,
+              },
+            },
+            { tx }
+          );
+
           released.push(updatedRegistration);
 
           if (currentEvent.waitlistCapacity > 0) {
             const promotedEntry = await promoteNextWaiting(tx, currentEvent);
 
             if (promotedEntry) {
+              await publishWaitlistPromoted(
+                {
+                  eventId: currentEvent.id,
+                  userId: promotedEntry.waitlistEntry.userId,
+                  registrationId: promotedEntry.registration.id,
+                  metadata: {
+                    waitlistEntryId: promotedEntry.waitlistEntry.id,
+                    seatNumber: promotedEntry.registration.seatNumber,
+                  },
+                },
+                { tx }
+              );
               promoted.push(promotedEntry);
             }
           }
@@ -209,14 +233,6 @@ async function processEvent(event) {
           action: "no_show",
           registration,
         });
-        await publishNoShowReleased({
-          eventId: event.id,
-          userId: registration.userId,
-          registrationId: registration.id,
-          metadata: {
-            status: registration.status,
-          },
-        });
       }
 
       for (const promotion of result.promoted) {
@@ -227,15 +243,6 @@ async function processEvent(event) {
         emitRegistrationUpdated(event.id, {
           action: "promoted",
           registration: promotion.registration,
-        });
-        await publishWaitlistPromoted({
-          eventId: event.id,
-          userId: promotion.waitlistEntry.userId,
-          registrationId: promotion.registration.id,
-          metadata: {
-            waitlistEntryId: promotion.waitlistEntry.id,
-            seatNumber: promotion.registration.seatNumber,
-          },
         });
       }
 

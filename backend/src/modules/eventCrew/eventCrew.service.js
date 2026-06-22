@@ -137,6 +137,19 @@ async function createCrewAccess(eventId, data, assignedBy) {
       },
     });
 
+    await publishCrewAccessGranted(
+      {
+        eventId,
+        userId: crewAccess.userId,
+        metadata: {
+          crewAccessId: crewAccess.id,
+          accessType: crewAccess.accessType,
+          gateName: crewAccess.gateName,
+        },
+      },
+      { tx }
+    );
+
     return crewAccess;
   });
 
@@ -150,15 +163,6 @@ async function createCrewAccess(eventId, data, assignedBy) {
     accessType: access.accessType,
     gateName: access.gateName,
     note: access.note,
-  });
-  await publishCrewAccessGranted({
-    eventId,
-    userId: access.userId,
-    metadata: {
-      crewAccessId: access.id,
-      accessType: access.accessType,
-      gateName: access.gateName,
-    },
   });
   await runBestEffort("Notification create", () =>
     createNotification({
@@ -262,6 +266,18 @@ async function updateCrewAccess(eventId, crewAccessId, data, user) {
       },
     });
 
+    await publishCrewAccessUpdated(
+      {
+        eventId,
+        userId: updated.userId,
+        metadata: {
+          crewAccessId: updated.id,
+          data,
+        },
+      },
+      { tx }
+    );
+
     return updated;
   });
 
@@ -272,14 +288,6 @@ async function updateCrewAccess(eventId, crewAccessId, data, user) {
     accessType: access.accessType,
     gateName: access.gateName,
     note: access.note,
-  });
-  await publishCrewAccessUpdated({
-    eventId,
-    userId: access.userId,
-    metadata: {
-      crewAccessId: access.id,
-      data,
-    },
   });
   if (data.isActive !== false) {
     await runBestEffort("Notification create", () =>
@@ -315,17 +323,30 @@ async function revokeCrewAccess(eventId, crewAccessId, user) {
     user
   );
 
-  await prisma.eventLog.create({
-    data: {
-      eventId,
-      type: "CREW_ACCESS_REVOKED",
-      message: "Crew access revoked",
-      metadata: {
-        crewAccessId,
-        userId: access.userId,
-        revokedById: user.id,
+  await prisma.$transaction(async (tx) => {
+    await tx.eventLog.create({
+      data: {
+        eventId,
+        type: "CREW_ACCESS_REVOKED",
+        message: "Crew access revoked",
+        metadata: {
+          crewAccessId,
+          userId: access.userId,
+          revokedById: user.id,
+        },
       },
-    },
+    });
+
+    await publishCrewAccessRevoked(
+      {
+        eventId,
+        userId: access.userId,
+        metadata: {
+          crewAccessId,
+        },
+      },
+      { tx }
+    );
   });
 
   await runBestEffort("Redis crew counter decrement", () =>
@@ -338,13 +359,6 @@ async function revokeCrewAccess(eventId, crewAccessId, user) {
     accessType: access.accessType,
     gateName: access.gateName,
     note: access.note,
-  });
-  await publishCrewAccessRevoked({
-    eventId,
-    userId: access.userId,
-    metadata: {
-      crewAccessId,
-    },
   });
   await runBestEffort("Notification create", () =>
     createNotification({

@@ -6,15 +6,14 @@ const {
 } = require("./kafkaSchemas");
 const { logger } = require("../observability/logger");
 const { withSpan } = require("../observability/spans");
+const {
+  enqueueOutboxEvent,
+  normalizeOutboxPayload,
+  safeEnqueueOutboxEvent,
+} = require("./outbox");
 
 function normalizePayload(payload = {}) {
-  return {
-    eventId: payload.eventId,
-    userId: payload.userId || null,
-    registrationId: payload.registrationId || null,
-    timestamp: payload.timestamp || new Date().toISOString(),
-    metadata: payload.metadata || {},
-  };
+  return normalizeOutboxPayload(payload);
 }
 
 async function publishKafkaMessage(topic, message, options = {}) {
@@ -47,19 +46,29 @@ async function publishKafkaMessage(topic, message, options = {}) {
   });
 }
 
-async function publishEvent(topic, payload) {
+async function publishEvent(topic, payload, options = {}) {
   try {
     const message = normalizePayload(payload);
     validateKafkaMessage(topic, message, "outgoing message");
 
-    await publishKafkaMessage(topic, message, {
-      key: message.eventId || message.userId || undefined,
-    });
+    const outboxOptions = {
+      key: options.key || message.eventId || message.userId || undefined,
+      headers: options.headers,
+      maxAttempts: options.maxAttempts,
+    };
+    const outboxResult = options.tx
+      ? {
+          enqueued: true,
+          outboxEventId: (await enqueueOutboxEvent(options.tx, topic, message, outboxOptions)).id,
+        }
+      : await safeEnqueueOutboxEvent(null, topic, message, outboxOptions);
 
     return {
-      published: true,
+      published: false,
+      enqueued: outboxResult.enqueued,
       topic,
       payload: message,
+      outboxEventId: outboxResult.outboxEventId,
     };
   } catch (error) {
     logger.error(
@@ -71,6 +80,10 @@ async function publishEvent(topic, payload) {
       "Kafka publish failed"
     );
 
+    if (options.tx) {
+      throw error;
+    }
+
     return {
       published: false,
       topic,
@@ -79,48 +92,48 @@ async function publishEvent(topic, payload) {
   }
 }
 
-function publishRegistrationCreated(payload) {
-  return publishEvent(TOPICS.REGISTRATION_CREATED, payload);
+function publishRegistrationCreated(payload, options) {
+  return publishEvent(TOPICS.REGISTRATION_CREATED, payload, options);
 }
 
-function publishWaitlistJoined(payload) {
-  return publishEvent(TOPICS.WAITLIST_JOINED, payload);
+function publishWaitlistJoined(payload, options) {
+  return publishEvent(TOPICS.WAITLIST_JOINED, payload, options);
 }
 
-function publishWaitlistPromoted(payload) {
-  return publishEvent(TOPICS.WAITLIST_PROMOTED, payload);
+function publishWaitlistPromoted(payload, options) {
+  return publishEvent(TOPICS.WAITLIST_PROMOTED, payload, options);
 }
 
-function publishRegistrationCancelled(payload) {
-  return publishEvent(TOPICS.REGISTRATION_CANCELLED, payload);
+function publishRegistrationCancelled(payload, options) {
+  return publishEvent(TOPICS.REGISTRATION_CANCELLED, payload, options);
 }
 
-function publishCheckinCompleted(payload) {
-  return publishEvent(TOPICS.CHECKIN_COMPLETED, payload);
+function publishCheckinCompleted(payload, options) {
+  return publishEvent(TOPICS.CHECKIN_COMPLETED, payload, options);
 }
 
-function publishScanFailed(payload) {
-  return publishEvent(TOPICS.SCAN_FAILED, payload);
+function publishScanFailed(payload, options) {
+  return publishEvent(TOPICS.SCAN_FAILED, payload, options);
 }
 
-function publishNoShowReleased(payload) {
-  return publishEvent(TOPICS.NO_SHOW_RELEASED, payload);
+function publishNoShowReleased(payload, options) {
+  return publishEvent(TOPICS.NO_SHOW_RELEASED, payload, options);
 }
 
-function publishCrewAccessGranted(payload) {
-  return publishEvent(TOPICS.CREW_ACCESS_GRANTED, payload);
+function publishCrewAccessGranted(payload, options) {
+  return publishEvent(TOPICS.CREW_ACCESS_GRANTED, payload, options);
 }
 
-function publishCrewAccessUpdated(payload) {
-  return publishEvent(TOPICS.CREW_ACCESS_UPDATED, payload);
+function publishCrewAccessUpdated(payload, options) {
+  return publishEvent(TOPICS.CREW_ACCESS_UPDATED, payload, options);
 }
 
-function publishCrewAccessRevoked(payload) {
-  return publishEvent(TOPICS.CREW_ACCESS_REVOKED, payload);
+function publishCrewAccessRevoked(payload, options) {
+  return publishEvent(TOPICS.CREW_ACCESS_REVOKED, payload, options);
 }
 
-function publishCrewSpecialEntryUsed(payload) {
-  return publishEvent(TOPICS.CREW_SPECIAL_ENTRY_USED, payload);
+function publishCrewSpecialEntryUsed(payload, options) {
+  return publishEvent(TOPICS.CREW_SPECIAL_ENTRY_USED, payload, options);
 }
 
 module.exports = {
