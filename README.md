@@ -41,6 +41,25 @@ npm run prisma:studio
 npm run seed
 ```
 
+## Backend Tests
+
+Run the RBAC/ABAC authorization suite with:
+
+```bash
+cd backend
+npm run test:authz
+```
+
+The suite uses Jest and Supertest against the real Express app, JWT auth middleware, CASL policies, route middleware, and Prisma-backed service ownership checks. It seeds isolated admin, organizer, volunteer, and student users plus organizer-owned events, then verifies student restrictions, organizer ownership boundaries, volunteer scan scope, and admin access. Run it against a migrated test database; the test data uses unique `authz-*` emails and cleans itself up after completion.
+
+To avoid accidental writes to shared databases, the suite runs only when `DATABASE_URL` points to localhost, the database name clearly contains `eventpulse_test`, or `AUTHZ_TEST_DATABASE_URL` is provided:
+
+```bash
+AUTHZ_TEST_DATABASE_URL=postgresql://eventpulse:eventpulse@localhost:5433/eventpulse_test npm run test:authz
+```
+
+Remote database runs require explicit opt-in with `AUTHZ_ALLOW_REMOTE_DATABASE=true`.
+
 ## API Routes
 
 Auth:
