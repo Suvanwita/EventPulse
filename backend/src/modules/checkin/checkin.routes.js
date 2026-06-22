@@ -6,6 +6,7 @@ const validateRequest = require("../../middleware/validateRequest.middleware");
 const { ACTIONS, SUBJECTS } = require("../../authorization/ability");
 const { requireAbility } = require("../../middleware/role.middleware");
 const checkinController = require("./checkin.controller");
+const { rateLimiters } = require("../../utils/rateLimiter");
 const schemas = require("../../validation/requestSchemas");
 
 const router = express.Router({
@@ -15,6 +16,7 @@ const router = express.Router({
 router.post(
   "/scan",
   authMiddleware,
+  rateLimiters.qrScan,
   requireAbility(ACTIONS.SCAN, SUBJECTS.CHECK_IN),
   validateRequest(schemas.checkin.scan),
   idempotencyMiddleware(),
@@ -24,6 +26,7 @@ router.post(
 router.post(
   "/special-entry",
   authMiddleware,
+  rateLimiters.qrScan,
   requireAbility(ACTIONS.SCAN, SUBJECTS.CHECK_IN),
   validateRequest(schemas.checkin.specialEntry),
   idempotencyMiddleware(),

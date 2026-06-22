@@ -5,13 +5,14 @@ const { idempotencyMiddleware } = require("../../middleware/idempotency.middlewa
 const { requireAbility } = require("../../middleware/role.middleware");
 const validateRequest = require("../../middleware/validateRequest.middleware");
 const eventCrewController = require("./eventCrew.controller");
+const { rateLimiters } = require("../../utils/rateLimiter");
 const schemas = require("../../validation/requestSchemas");
 
 const router = express.Router({
   mergeParams: true,
 });
 
-router.post("/", requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS), validateRequest(schemas.crew.create), idempotencyMiddleware(), eventCrewController.createCrewAccess);
+router.post("/", rateLimiters.adminWrite, requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS), validateRequest(schemas.crew.create), idempotencyMiddleware(), eventCrewController.createCrewAccess);
 router.get(
   "/",
   requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS),
@@ -19,7 +20,7 @@ router.get(
   eventCrewController.listCrewAccess
 );
 router.get("/me", validateRequest(schemas.crew.id), eventCrewController.getMyCrewAccess);
-router.patch("/:crewAccessId", requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS), validateRequest(schemas.crew.update), idempotencyMiddleware(), eventCrewController.updateCrewAccess);
-router.delete("/:crewAccessId", requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS), validateRequest(schemas.crew.accessId), idempotencyMiddleware(), eventCrewController.revokeCrewAccess);
+router.patch("/:crewAccessId", rateLimiters.adminWrite, requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS), validateRequest(schemas.crew.update), idempotencyMiddleware(), eventCrewController.updateCrewAccess);
+router.delete("/:crewAccessId", rateLimiters.adminWrite, requireAbility(ACTIONS.ACCESS, SUBJECTS.EVENT_CREW_ACCESS), validateRequest(schemas.crew.accessId), idempotencyMiddleware(), eventCrewController.revokeCrewAccess);
 
 module.exports = router;

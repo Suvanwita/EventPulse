@@ -112,6 +112,26 @@ The backend uses Helmet to apply security response headers before CORS and API r
 
 `Strict-Transport-Security` is enabled only when `NODE_ENV=production` so local HTTP development keeps working. `FRONTEND_URL` is used in the CSP `connect-src` allowlist alongside the backend origin.
 
+## Auth Rate Limiting
+
+EventPulse uses Redis-backed fixed-window rate limits for sensitive routes. Login and registration are limited by IP and email to slow brute-force attempts. Authenticated limits protect QR scans, special entry, pass generation, notification mutations, and admin/organizer write routes. Responses include `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` headers.
+
+Default limits can be tuned with environment variables:
+
+```bash
+RATE_LIMIT_AUTH_LOGIN_IP_LIMIT=20
+RATE_LIMIT_AUTH_LOGIN_IP_WINDOW_SECONDS=900
+RATE_LIMIT_AUTH_LOGIN_EMAIL_LIMIT=8
+RATE_LIMIT_AUTH_LOGIN_EMAIL_IP_LIMIT=5
+RATE_LIMIT_AUTH_REGISTER_IP_LIMIT=10
+RATE_LIMIT_AUTH_REGISTER_IP_WINDOW_SECONDS=3600
+RATE_LIMIT_QR_SCAN_USER_LIMIT=60
+RATE_LIMIT_QR_SCAN_USER_WINDOW_SECONDS=60
+RATE_LIMIT_PASS_GENERATION_USER_LIMIT=30
+RATE_LIMIT_NOTIFICATION_MUTATION_USER_LIMIT=60
+RATE_LIMIT_ADMIN_WRITE_USER_LIMIT=60
+```
+
 ## Authorization Policies
 
 Backend authorization is centralized with CASL in `backend/src/authorization/ability.js`. Route middleware uses coarse abilities such as `create Event`, `read GateFlow`, and `manage Venue`, while service methods use object-aware policies for ownership-sensitive records such as events, analytics, waitlists, crew access, check-ins, passes, registrations, and notifications.
