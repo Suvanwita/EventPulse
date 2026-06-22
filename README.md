@@ -102,6 +102,10 @@ Users register or log in with email/password. Passwords are hashed with `bcryptj
 
 Protected routes use `Authorization: Bearer <token>`. Public registration can create `STUDENT`, `ORGANIZER`, and `VOLUNTEER`; `ADMIN` cannot be created through public registration.
 
+## Request Validation
+
+Backend route inputs are validated at the API boundary with Zod. Shared schemas live in `backend/src/validation/requestSchemas.js` and are applied through `backend/src/middleware/validateRequest.middleware.js` for request bodies, route params, and query strings. Invalid requests return `400` with structured field-level details before reaching service logic.
+
 ## Registration Flow
 
 Students register for `OPEN` or `LIVE` events before `registrationDeadline`. Registration uses Redis lock `lock:event:{eventId}:registration` and a Prisma transaction to prevent overbooking. If capacity is available, the system allocates the first available seat and creates a `CONFIRMED` registration.
