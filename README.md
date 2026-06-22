@@ -106,6 +106,12 @@ Protected routes use `Authorization: Bearer <token>`. Public registration can cr
 
 Backend route inputs are validated at the API boundary with Zod. Shared schemas live in `backend/src/validation/requestSchemas.js` and are applied through `backend/src/middleware/validateRequest.middleware.js` for request bodies, route params, and query strings. Invalid requests return `400` with structured field-level details before reaching service logic.
 
+## Security Headers
+
+The backend uses Helmet to apply security response headers before CORS and API routes. The policy includes a conservative Content Security Policy, `X-Frame-Options`/`frame-ancestors` deny framing, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and cross-origin isolation/resource policies suitable for an API backend.
+
+`Strict-Transport-Security` is enabled only when `NODE_ENV=production` so local HTTP development keeps working. `FRONTEND_URL` is used in the CSP `connect-src` allowlist alongside the backend origin.
+
 ## Authorization Policies
 
 Backend authorization is centralized with CASL in `backend/src/authorization/ability.js`. Route middleware uses coarse abilities such as `create Event`, `read GateFlow`, and `manage Venue`, while service methods use object-aware policies for ownership-sensitive records such as events, analytics, waitlists, crew access, check-ins, passes, registrations, and notifications.
