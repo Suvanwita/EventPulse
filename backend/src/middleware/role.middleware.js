@@ -1,4 +1,5 @@
 const ApiError = require("../utils/ApiError");
+const { authorize } = require("../authorization/ability");
 
 function requireRole(...roles) {
   return (req, res, next) => {
@@ -10,6 +11,18 @@ function requireRole(...roles) {
   };
 }
 
+function requireAbility(action, subject) {
+  return (req, res, next) => {
+    try {
+      authorize(req.user, action, subject);
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
 module.exports = {
+  requireAbility,
   requireRole,
 };

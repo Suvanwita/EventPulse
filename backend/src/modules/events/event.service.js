@@ -1,14 +1,11 @@
 const prisma = require("../../config/prisma");
+const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const { hasOverlap } = require("../../dsa/intervalScheduler");
 const ApiError = require("../../utils/ApiError");
 const safeUser = require("../../utils/safeUser");
 const { scheduleEventLifecycleJobs } = require("../../queues/scheduler");
 const { logger } = require("../../observability/logger");
 const { EVENT_STATUSES } = require("./event.validation");
-
-function canModifyEvent(event, user) {
-  return user.role === "ADMIN" || event.createdById === user.id;
-}
 
 async function getVenueOrThrow(venueId) {
   const venue = await prisma.venue.findUnique({
@@ -70,6 +67,7 @@ async function assertEventRules(data, options = {}) {
 }
 
 async function createEvent(data, user) {
+  authorize(user, ACTIONS.CREATE, SUBJECTS.EVENT);
   await assertEventRules(data);
 
   const event = await prisma.$transaction(async (tx) => {
@@ -219,10 +217,7 @@ async function getEventDetails(id) {
 
 async function updateEvent(id, data, user) {
   const existingEvent = await getEventById(id);
-
-  if (!canModifyEvent(existingEvent, user)) {
-    throw new ApiError(403, "Forbidden");
-  }
+  authorize(user, ACTIONS.UPDATE, asSubject(SUBJECTS.EVENT, existingEvent));
 
   const nextEvent = {
     ...existingEvent,
@@ -249,10 +244,7 @@ async function updateEvent(id, data, user) {
 
 async function deleteEvent(id, user) {
   const event = await getEventById(id);
-
-  if (!canModifyEvent(event, user)) {
-    throw new ApiError(403, "Forbidden");
-  }
+  authorize(user, ACTIONS.DELETE, asSubject(SUBJECTS.EVENT, event));
 
   return prisma.$transaction(async (tx) => {
     await tx.checkIn.deleteMany({

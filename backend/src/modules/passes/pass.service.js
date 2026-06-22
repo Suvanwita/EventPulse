@@ -1,6 +1,7 @@
 const QRCode = require("qrcode");
 
 const prisma = require("../../config/prisma");
+const { ACTIONS, SUBJECTS, asSubject, authorize, can } = require("../../authorization/ability");
 const ApiError = require("../../utils/ApiError");
 const safeUser = require("../../utils/safeUser");
 const {
@@ -10,11 +11,7 @@ const {
 } = require("../../utils/qrToken");
 
 function canFetchPassForRegistration(registration, user) {
-  if (user.role === "STUDENT") {
-    return registration.userId === user.id;
-  }
-
-  return ["ORGANIZER", "ADMIN"].includes(user.role);
+  return can(user, ACTIONS.READ, asSubject(SUBJECTS.PASS, { userId: registration.userId }));
 }
 
 async function findRegistration(eventId, user, requestedUserId) {
@@ -70,7 +67,7 @@ async function getEventPass(eventId, user, options = {}) {
   }
 
   if (registration && !canFetchPassForRegistration(registration, user)) {
-    throw new ApiError(403, "Forbidden");
+    authorize(user, ACTIONS.READ, asSubject(SUBJECTS.PASS, { userId: registration.userId }));
   }
 
   if (registration && !["CONFIRMED", "CHECKED_IN"].includes(registration.status) && !activeCrewAccess) {

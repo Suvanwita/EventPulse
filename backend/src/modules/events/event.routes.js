@@ -2,7 +2,8 @@ const express = require("express");
 
 const authMiddleware = require("../../middleware/auth.middleware");
 const validateRequest = require("../../middleware/validateRequest.middleware");
-const { requireRole } = require("../../middleware/role.middleware");
+const { ACTIONS, SUBJECTS } = require("../../authorization/ability");
+const { requireAbility } = require("../../middleware/role.middleware");
 const eventController = require("./event.controller");
 const schemas = require("../../validation/requestSchemas");
 const checkinRoutes = require("../checkin/checkin.routes");
@@ -16,7 +17,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-router.post("/", requireRole("ORGANIZER", "ADMIN"), validateRequest(schemas.events.create), eventController.createEvent);
+router.post("/", requireAbility(ACTIONS.CREATE, SUBJECTS.EVENT), validateRequest(schemas.events.create), eventController.createEvent);
 router.get("/", validateRequest(schemas.events.list), eventController.listEvents);
 router.use("/:id", passRoutes);
 router.use("/:id", registrationRoutes);

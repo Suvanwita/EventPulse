@@ -106,6 +106,12 @@ Protected routes use `Authorization: Bearer <token>`. Public registration can cr
 
 Backend route inputs are validated at the API boundary with Zod. Shared schemas live in `backend/src/validation/requestSchemas.js` and are applied through `backend/src/middleware/validateRequest.middleware.js` for request bodies, route params, and query strings. Invalid requests return `400` with structured field-level details before reaching service logic.
 
+## Authorization Policies
+
+Backend authorization is centralized with CASL in `backend/src/authorization/ability.js`. Route middleware uses coarse abilities such as `create Event`, `read GateFlow`, and `manage Venue`, while service methods use object-aware policies for ownership-sensitive records such as events, analytics, waitlists, crew access, check-ins, passes, registrations, and notifications.
+
+Admins can manage all resources. Organizers can create events and manage owned event resources. Volunteers can scan and read operational entry data. Students can register, cancel, read their own passes, and read their own notifications. PostgreSQL remains the source of truth for ownership checks before object-level CASL authorization is evaluated.
+
 ## Registration Flow
 
 Students register for `OPEN` or `LIVE` events before `registrationDeadline`. Registration uses Redis lock `lock:event:{eventId}:registration` and a Prisma transaction to prevent overbooking. If capacity is available, the system allocates the first available seat and creates a `CONFIRMED` registration.

@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const { logger } = require("../../observability/logger");
 const ApiError = require("../../utils/ApiError");
 const { incrementCheckedIn } = require("../../utils/eventCounters");
@@ -661,12 +662,7 @@ async function listEventCheckIns(eventId, user) {
     throw new ApiError(404, "Event not found");
   }
 
-  if (
-    user.role === "ORGANIZER" &&
-    event.createdById !== user.id
-  ) {
-    throw new ApiError(403, "Forbidden");
-  }
+  authorize(user, ACTIONS.READ, asSubject(SUBJECTS.CHECK_IN, event));
 
   return prisma.checkIn.findMany({
     where: {

@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const ApiError = require("../../utils/ApiError");
 const registrationService = require("../registrations/registration.service");
 
@@ -17,13 +18,7 @@ async function getWaitlist(eventId, user) {
     throw new ApiError(404, "Event not found");
   }
 
-  if (!["ORGANIZER", "ADMIN"].includes(user.role)) {
-    throw new ApiError(403, "Forbidden");
-  }
-
-  if (user.role !== "ADMIN" && event.createdById !== user.id) {
-    throw new ApiError(403, "Forbidden");
-  }
+  authorize(user, ACTIONS.READ, asSubject(SUBJECTS.WAITLIST, event));
 
   return prisma.waitlistEntry.findMany({
     where: {
@@ -48,10 +43,6 @@ async function getWaitlist(eventId, user) {
 }
 
 async function promoteNext(eventId, user) {
-  if (!["ORGANIZER", "ADMIN"].includes(user.role)) {
-    throw new ApiError(403, "Forbidden");
-  }
-
   return registrationService.promoteNext(eventId, user);
 }
 

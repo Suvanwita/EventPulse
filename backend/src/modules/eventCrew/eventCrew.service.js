@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const redis = require("../../config/redis");
 const { logger } = require("../../observability/logger");
 const ApiError = require("../../utils/ApiError");
@@ -36,16 +37,9 @@ async function getEventOrThrow(eventId) {
   return event;
 }
 
-function canManageEventCrew(event, user) {
-  return user.role === "ADMIN" || user.role === "ORGANIZER" || event.createdById === user.id;
-}
-
 async function assertCanManage(eventId, user) {
   const event = await getEventOrThrow(eventId);
-
-  if (!canManageEventCrew(event, user)) {
-    throw new ApiError(403, "Forbidden");
-  }
+  authorize(user, ACTIONS.MANAGE, asSubject(SUBJECTS.EVENT_CREW_ACCESS, event));
 
   return event;
 }
@@ -187,13 +181,7 @@ async function createCrewAccess(eventId, data, assignedBy) {
 
 async function listCrewAccess(eventId, user) {
   const event = await getEventOrThrow(eventId);
-
-  if (
-    !["VOLUNTEER", "ORGANIZER", "ADMIN"].includes(user.role) &&
-    event.createdById !== user.id
-  ) {
-    throw new ApiError(403, "Forbidden");
-  }
+  authorize(user, ACTIONS.READ, asSubject(SUBJECTS.EVENT_CREW_ACCESS, event));
 
   const access = await prisma.eventCrewAccess.findMany({
     where: {

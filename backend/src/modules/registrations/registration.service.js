@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 
 const prisma = require("../../config/prisma");
+const { ACTIONS, SUBJECTS, asSubject, authorize } = require("../../authorization/ability");
 const { getFirstAvailableSeat } = require("../../dsa/seatAllocator");
 const { logger } = require("../../observability/logger");
 const ApiError = require("../../utils/ApiError");
@@ -32,9 +33,7 @@ function getRegistrationLockKey(eventId) {
 }
 
 function assertStudent(user) {
-  if (user.role !== "STUDENT") {
-    throw new ApiError(403, "Only students can register for events");
-  }
+  authorize(user, ACTIONS.CREATE, SUBJECTS.REGISTRATION);
 }
 
 function assertRegistrationWindow(event) {
@@ -665,9 +664,7 @@ async function promoteNext(eventId, user) {
       const result = await prisma.$transaction(async (tx) => {
         const event = await getEventForRegistration(tx, eventId);
 
-        if (user.role !== "ADMIN" && event.createdById !== user.id) {
-          throw new ApiError(403, "Forbidden");
-        }
+        authorize(user, ACTIONS.PROMOTE, asSubject(SUBJECTS.WAITLIST, event));
 
         const confirmedCount = await tx.registration.count({
           where: {
