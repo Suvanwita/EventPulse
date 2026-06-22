@@ -24,6 +24,26 @@ function emitToEventRoom(eventId, eventName, payload) {
   return true;
 }
 
+function getUserRoom(userId) {
+  return `user:${userId}`;
+}
+
+function emitToUserRoom(userId, eventName, payload) {
+  const io = getSocketServer();
+
+  if (!io || !userId) {
+    return false;
+  }
+
+  io.to(getUserRoom(userId)).emit(eventName, {
+    userId,
+    timestamp: getTimestamp(),
+    ...payload,
+  });
+
+  return true;
+}
+
 async function getDbCounters(eventId) {
   const [event, registeredCount, checkedInCount, waitlistCount] =
     await Promise.all([
@@ -175,15 +195,27 @@ function emitSpecialEntryUsed(eventId, payload = {}) {
   return emitToEventRoom(eventId, "special-entry-used", payload);
 }
 
+function emitNotificationCreated(userId, payload = {}) {
+  return emitToUserRoom(userId, "notification-created", payload);
+}
+
+function emitNotificationRead(userId, payload = {}) {
+  return emitToUserRoom(userId, "notification-read", payload);
+}
+
 module.exports = {
   emitCapacityUpdated,
   emitCheckinUpdated,
   emitCrewAccessUpdated,
   emitEntryRateUpdated,
   emitNoShowReleased,
+  emitNotificationCreated,
+  emitNotificationRead,
   emitRegistrationUpdated,
   emitSpecialEntryUsed,
   emitToEventRoom,
+  emitToUserRoom,
   emitWaitlistUpdated,
   getCapacityPayload,
+  getUserRoom,
 };

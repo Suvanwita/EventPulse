@@ -80,6 +80,12 @@ Analytics:
 - `GET /api/analytics/venues`
 - `GET /api/analytics/checkins`
 
+Notifications:
+- `GET /api/notifications`
+- `GET /api/notifications/unread-count`
+- `PATCH /api/notifications/:id/read`
+- `PATCH /api/notifications/read-all`
+
 Health:
 - `GET /health`
 
@@ -124,6 +130,8 @@ Server emitted events:
 - `checkin-updated`
 - `entry-rate-updated`
 - `no-show-released`
+- `notification-created`
+- `notification-read`
 
 ## Redis Usage
 
@@ -137,6 +145,10 @@ Redis is used for:
   - `event:{eventId}:waitlistCount`
 
 PostgreSQL remains the source of truth. Redis counters can be rebuilt with database sync helpers.
+
+## In-App Notifications
+
+EventPulse stores per-user notifications for registration confirmations, waitlist joins and promotions, cancellations, check-ins, and crew access changes. Authenticated clients can fetch `/api/notifications`, read the navbar badge count through `/api/notifications/unread-count`, and mark one or all notifications as read. Socket.IO pushes `notification-created` and `notification-read` events to each authenticated user room so the badge and `/notifications` center update live.
 
 ## Kafka Usage
 
@@ -215,6 +227,7 @@ Integrated pages:
 - `/register`
 - `/events`
 - `/events/[id]`
+- `/notifications`
 - `/pass/[eventId]`
 - `/organizer/dashboard`
 - `/organizer/events/new`

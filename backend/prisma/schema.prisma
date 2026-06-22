@@ -64,6 +64,18 @@ enum CrewAccessType {
   VIP_ENTRY
 }
 
+enum NotificationType {
+  REGISTRATION_CONFIRMED
+  WAITLIST_JOINED
+  WAITLIST_PROMOTED
+  REGISTRATION_CANCELLED
+  CHECKIN_COMPLETED
+  CREW_ACCESS_GRANTED
+  CREW_ACCESS_UPDATED
+  CREW_ACCESS_REVOKED
+  SYSTEM
+}
+
 model User {
   id              String          @id @default(uuid())
   name            String
@@ -79,6 +91,7 @@ model User {
   scannedCheckIns CheckIn[]       @relation("VolunteerScans")
   crewAccesses    EventCrewAccess[] @relation("CrewAccessUser")
   assignedCrewAccesses EventCrewAccess[] @relation("CrewAccessAssignedBy")
+  notifications    Notification[]
 
   @@index([createdAt])
 }
@@ -119,10 +132,32 @@ model Event {
   checkIns             CheckIn[]
   logs                 EventLog[]
   crewAccesses         EventCrewAccess[]
+  notifications        Notification[]
 
   @@index([venueId])
   @@index([startTime])
   @@index([status])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  eventId   String?
+  type      NotificationType
+  title     String
+  message   String
+  actionUrl String?
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+  event     Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([type])
+  @@index([readAt])
   @@index([createdAt])
 }
 

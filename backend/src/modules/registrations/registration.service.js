@@ -22,6 +22,7 @@ const {
   emitRegistrationUpdated,
   emitWaitlistUpdated,
 } = require("../../utils/socketEmitter");
+const { createNotification } = require("../notifications/notification.service");
 
 const REGISTRATION_LOCK_TTL_MS = 10_000;
 
@@ -152,6 +153,10 @@ async function promoteNextWaitlistEntry(tx, event, seatNumber) {
   return {
     registration,
     waitlistEntry,
+    event: {
+      id: event.id,
+      title: event.title,
+    },
   };
 }
 
@@ -234,6 +239,10 @@ async function registerForEvent(eventId, user) {
           return {
             outcome: "CONFIRMED",
             registration,
+            event: {
+              id: event.id,
+              title: event.title,
+            },
           };
         }
 
@@ -326,6 +335,10 @@ async function registerForEvent(eventId, user) {
           outcome: "WAITLISTED",
           registration,
           waitlistEntry,
+          event: {
+            id: event.id,
+            title: event.title,
+          },
         };
       });
 
@@ -348,6 +361,20 @@ async function registerForEvent(eventId, user) {
             seatNumber: result.registration.seatNumber,
           },
         });
+        await runBestEffort("Notification create", () =>
+          createNotification({
+            userId: user.id,
+            eventId,
+            type: "REGISTRATION_CONFIRMED",
+            title: "Registration confirmed",
+            message: `Your seat is confirmed for ${result.event.title}.`,
+            actionUrl: `/pass/${eventId}`,
+            metadata: {
+              registrationId: result.registration.id,
+              seatNumber: result.registration.seatNumber,
+            },
+          })
+        );
       } else {
         await runBestEffort("Redis waitlist counter increment", () =>
           incrementWaitlist(eventId)
@@ -369,6 +396,21 @@ async function registerForEvent(eventId, user) {
             position: result.waitlistEntry.position,
           },
         });
+        await runBestEffort("Notification create", () =>
+          createNotification({
+            userId: user.id,
+            eventId,
+            type: "WAITLIST_JOINED",
+            title: "Added to waitlist",
+            message: `You are #${result.waitlistEntry.position} on the waitlist for ${result.event.title}.`,
+            actionUrl: `/events/${eventId}`,
+            metadata: {
+              registrationId: result.registration.id,
+              waitlistEntryId: result.waitlistEntry.id,
+              position: result.waitlistEntry.position,
+            },
+          })
+        );
       }
 
       return result;
@@ -438,6 +480,10 @@ async function cancelRegistration(eventId, user) {
             cancelledRegistration,
             promoted: null,
             wasWaitlisted: true,
+            event: {
+              id: event.id,
+              title: event.title,
+            },
           };
         }
 
@@ -475,6 +521,10 @@ async function cancelRegistration(eventId, user) {
           cancelledRegistration,
           promoted,
           wasWaitlisted: false,
+          event: {
+            id: event.id,
+            title: event.title,
+          },
         };
       });
 
@@ -519,6 +569,21 @@ async function cancelRegistration(eventId, user) {
               seatNumber: result.promoted.registration.seatNumber,
             },
           });
+          await runBestEffort("Notification create", () =>
+            createNotification({
+              userId: result.promoted.waitlistEntry.userId,
+              eventId,
+              type: "WAITLIST_PROMOTED",
+              title: "Waitlist seat confirmed",
+              message: `A seat opened up for ${result.event.title}. Your registration is now confirmed.`,
+              actionUrl: `/pass/${eventId}`,
+              metadata: {
+                registrationId: result.promoted.registration.id,
+                waitlistEntryId: result.promoted.waitlistEntry.id,
+                seatNumber: result.promoted.registration.seatNumber,
+              },
+            })
+          );
         }
       }
 
@@ -534,6 +599,19 @@ async function cancelRegistration(eventId, user) {
           promotedRegistrationId: result.promoted?.registration.id || null,
         },
       });
+      await runBestEffort("Notification create", () =>
+        createNotification({
+          userId: user.id,
+          eventId,
+          type: "REGISTRATION_CANCELLED",
+          title: "Registration cancelled",
+          message: `Your registration for ${result.event.title} has been cancelled.`,
+          actionUrl: `/events/${eventId}`,
+          metadata: {
+            registrationId: result.cancelledRegistration.id,
+          },
+        })
+      );
 
       return result;
     }
@@ -642,6 +720,21 @@ async function promoteNext(eventId, user) {
           seatNumber: result.registration.seatNumber,
         },
       });
+      await runBestEffort("Notification create", () =>
+        createNotification({
+          userId: result.waitlistEntry.userId,
+          eventId,
+          type: "WAITLIST_PROMOTED",
+          title: "Waitlist seat confirmed",
+          message: `A seat opened up for ${result.event.title}. Your registration is now confirmed.`,
+          actionUrl: `/pass/${eventId}`,
+          metadata: {
+            registrationId: result.registration.id,
+            waitlistEntryId: result.waitlistEntry.id,
+            seatNumber: result.registration.seatNumber,
+          },
+        })
+      );
       await runBestEffort("Redis event counter sync", () =>
         syncEventCountersFromDb(eventId)
       );

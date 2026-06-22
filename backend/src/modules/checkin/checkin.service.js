@@ -16,6 +16,7 @@ const {
   emitEntryRateUpdated,
   emitSpecialEntryUsed,
 } = require("../../utils/socketEmitter");
+const { createNotification } = require("../notifications/notification.service");
 
 const SCAN_LOCK_TTL_MS = 10_000;
 const SCAN_RATE_LIMIT = 30;
@@ -456,6 +457,22 @@ async function scanQrToken(body, scanner) {
       gateName,
     },
   });
+  await runBestEffort("Notification create", () =>
+    createNotification({
+      userId: result.checkIn.userId,
+      eventId: result.checkIn.eventId,
+      type: "CHECKIN_COMPLETED",
+      title: "Checked in",
+      message: `You were checked in for ${result.event.title} at ${gateName}.`,
+      actionUrl: `/events/${result.checkIn.eventId}`,
+      metadata: {
+        checkInId: result.checkIn.id,
+        registrationId: result.registration?.id || null,
+        scannedById: scanner.id,
+        gateName,
+      },
+    })
+  );
 
   const crewScanFields = buildCrewScanFields(result.crewAccess, gateName);
 
@@ -597,6 +614,22 @@ async function specialEntry(body, scanner) {
       manual: true,
     },
   });
+  await runBestEffort("Notification create", () =>
+    createNotification({
+      userId,
+      eventId,
+      type: "CHECKIN_COMPLETED",
+      title: "Special entry recorded",
+      message: `Your special entry for ${result.event.title} was recorded at ${gateName}.`,
+      actionUrl: `/events/${eventId}`,
+      metadata: {
+        checkInId: result.checkIn.id,
+        crewAccessId: result.crewAccess.id,
+        gateName,
+        manual: true,
+      },
+    })
+  );
 
   return {
     checkIn: result.checkIn,

@@ -10,6 +10,7 @@ const {
 const {
   emitCrewAccessUpdated,
 } = require("../../utils/socketEmitter");
+const { createNotification } = require("../notifications/notification.service");
 
 async function runBestEffort(label, operation) {
   try {
@@ -61,7 +62,7 @@ function serializeCrewAccess(access) {
 }
 
 async function createCrewAccess(eventId, data, assignedBy) {
-  await assertCanManage(eventId, assignedBy);
+  const event = await assertCanManage(eventId, assignedBy);
 
   const user = await prisma.user.findFirst({
     where: {
@@ -164,6 +165,21 @@ async function createCrewAccess(eventId, data, assignedBy) {
       gateName: access.gateName,
     },
   });
+  await runBestEffort("Notification create", () =>
+    createNotification({
+      userId: access.userId,
+      eventId,
+      type: "CREW_ACCESS_GRANTED",
+      title: "Crew access granted",
+      message: `You have ${access.accessType.replaceAll("_", " ").toLowerCase()} access for ${event.title} at ${access.gateName}.`,
+      actionUrl: `/events/${eventId}`,
+      metadata: {
+        crewAccessId: access.id,
+        accessType: access.accessType,
+        gateName: access.gateName,
+      },
+    })
+  );
 
   return serializeCrewAccess(access);
 }
@@ -214,7 +230,7 @@ async function getMyCrewAccess(eventId, user) {
 }
 
 async function updateCrewAccess(eventId, crewAccessId, data, user) {
-  await assertCanManage(eventId, user);
+  const event = await assertCanManage(eventId, user);
 
   const existing = await prisma.eventCrewAccess.findFirst({
     where: {
@@ -276,12 +292,30 @@ async function updateCrewAccess(eventId, crewAccessId, data, user) {
       data,
     },
   });
+  if (data.isActive !== false) {
+    await runBestEffort("Notification create", () =>
+      createNotification({
+        userId: access.userId,
+        eventId,
+        type: "CREW_ACCESS_UPDATED",
+        title: "Crew access updated",
+        message: `Your crew access for ${event.title} now uses ${access.gateName}.`,
+        actionUrl: `/events/${eventId}`,
+        metadata: {
+          crewAccessId: access.id,
+          accessType: access.accessType,
+          gateName: access.gateName,
+          data,
+        },
+      })
+    );
+  }
 
   return serializeCrewAccess(access);
 }
 
 async function revokeCrewAccess(eventId, crewAccessId, user) {
-  await assertCanManage(eventId, user);
+  const event = await assertCanManage(eventId, user);
 
   const access = await updateCrewAccess(
     eventId,
@@ -323,6 +357,19 @@ async function revokeCrewAccess(eventId, crewAccessId, user) {
       crewAccessId,
     },
   });
+  await runBestEffort("Notification create", () =>
+    createNotification({
+      userId: access.userId,
+      eventId,
+      type: "CREW_ACCESS_REVOKED",
+      title: "Crew access revoked",
+      message: `Your crew access for ${event.title} has been revoked.`,
+      actionUrl: `/events/${eventId}`,
+      metadata: {
+        crewAccessId,
+      },
+    })
+  );
 
   return access;
 }

@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 
 const env = require("../config/env");
 const { registerEventSocketHandlers } = require("./event.socket");
+const { registerNotificationSocketHandlers } = require("./notification.socket");
 
 let ioInstance = null;
 
@@ -15,6 +16,7 @@ function initSocketServer(httpServer) {
 
   ioInstance = io;
   registerEventSocketHandlers(io);
+  registerNotificationSocketHandlers(io);
 
   return io;
 }

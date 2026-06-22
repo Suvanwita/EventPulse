@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "./Button";
+import { NotificationBell } from "./NotificationBell";
 import { getUser, isAuthenticated, logout } from "@/lib/auth";
 import { roleNavigation, type Role } from "@/lib/roles";
 
@@ -46,6 +47,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {user ? (
             <>
+              <NotificationBell />
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-black text-white">{user.name}</p>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/55">{user.role}</p>
