@@ -1,4 +1,8 @@
 const { kafka } = require("../config/kafka");
+const {
+  formatKafkaValidationError,
+  validateKafkaMessage,
+} = require("../utils/kafkaSchemas");
 const { DEFAULT_MAX_ATTEMPTS, getOriginalPayload, publishRetryOrDlq } = require("./kafkaRetry");
 
 const MAX_RETRY_SLEEP_MS = Number(process.env.KAFKA_RETRY_MAX_SLEEP_MS) || 30_000;
@@ -61,6 +65,10 @@ function createConsumerRunner({
 
     try {
       parsedPayload = parseMessageValue(message);
+      if (isRetry) {
+        validateKafkaMessage(topic, parsedPayload, "incoming retry envelope");
+      }
+
       originalTopic = isRetry ? parsedPayload.originalTopic : topic;
       const handler = topicHandlers[originalTopic];
 
@@ -75,6 +83,7 @@ function createConsumerRunner({
       }
 
       payload = isRetry ? getOriginalPayload(parsedPayload) : parsedPayload;
+      validateKafkaMessage(originalTopic, payload, "incoming message");
 
       await handler(payload, {
         topic: originalTopic,
@@ -117,7 +126,7 @@ function createConsumerRunner({
         targetTopic: result.targetTopic,
         attempt: result.envelope.attempt,
         maxAttempts,
-        error: error.message,
+        error: formatKafkaValidationError(error) || error.message,
       });
     }
   }

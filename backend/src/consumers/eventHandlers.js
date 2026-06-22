@@ -1,6 +1,6 @@
 const prisma = require("../config/prisma");
 const { syncEventCountersFromDb } = require("../utils/eventCounters");
-const { TOPICS } = require("../utils/eventProducer");
+const { TOPICS } = require("../utils/kafkaTopics");
 
 const COUNTER_SYNC_TOPICS = new Set([
   TOPICS.REGISTRATION_CREATED,

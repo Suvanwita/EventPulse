@@ -193,6 +193,20 @@ Dead-letter topics:
 
 Failed messages are wrapped with the original topic, original payload, original timestamp, attempt count, retry timestamp, consumer group, and serialized error. After `KAFKA_CONSUMER_MAX_ATTEMPTS`, the message is moved to the matching DLQ topic.
 
+Kafka message contracts are centralized in `backend/src/utils/kafkaSchemas.js` and enforced with AJV before publishing and before consumer handlers run. Domain messages keep the existing JSON shape:
+
+```json
+{
+  "eventId": "event-id",
+  "userId": "user-id-or-null",
+  "registrationId": "registration-id-or-null",
+  "timestamp": "2026-06-22T12:00:00.000Z",
+  "metadata": {}
+}
+```
+
+`eventpulse.security.scan_failed` allows `eventId` to be omitted because rejected scans may contain unusable or missing event data. Other domain topics require `eventId`, `timestamp`, and `metadata`. Validation failures are not published on the producer path; consumer-side validation failures are routed through the retry/DLQ flow with structured error details.
+
 ## Concurrency And Synchronization
 
 Registration, cancellation, waitlist promotion, no-show release, and QR scans are protected with Redis locks and Prisma transactions. Database unique constraints provide a final safety net for one registration per user/event, one waitlist entry per user/event, and one check-in per registration.

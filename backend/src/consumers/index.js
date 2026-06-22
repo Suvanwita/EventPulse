@@ -1,7 +1,7 @@
 const prisma = require("../config/prisma");
 const redis = require("../config/redis");
 const { disconnectProducer, kafka } = require("../config/kafka");
-const { DLQ_TOPICS, RETRY_TOPICS, TOPICS } = require("../utils/eventProducer");
+const { DLQ_TOPICS, RETRY_TOPICS, TOPICS } = require("../utils/kafkaTopics");
 const { createConsumerRunner } = require("./consumerRunner");
 const { buildTopicHandlers } = require("./eventHandlers");
 

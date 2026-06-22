@@ -1,4 +1,6 @@
-const { DLQ_TOPICS, RETRY_TOPICS, publishKafkaMessage } = require("../utils/eventProducer");
+const { publishKafkaMessage } = require("../utils/eventProducer");
+const { DLQ_TOPICS, RETRY_TOPICS } = require("../utils/kafkaTopics");
+const { validateKafkaMessage } = require("../utils/kafkaSchemas");
 
 const DEFAULT_MAX_ATTEMPTS = Number(process.env.KAFKA_CONSUMER_MAX_ATTEMPTS) || 3;
 const BASE_BACKOFF_MS = Number(process.env.KAFKA_RETRY_BASE_BACKOFF_MS) || 5_000;
@@ -70,6 +72,8 @@ async function publishRetryOrDlq(context) {
   if (!targetTopic) {
     throw new Error(`No retry/DLQ topic configured for category ${context.category}`);
   }
+
+  validateKafkaMessage(targetTopic, envelope, targetTopic === dlqTopic ? "DLQ envelope" : "retry envelope");
 
   await publishKafkaMessage(targetTopic, envelope, {
     key: envelope.originalKey || envelope.originalTopic,
