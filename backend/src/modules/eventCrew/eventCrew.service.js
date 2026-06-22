@@ -1,5 +1,6 @@
 const prisma = require("../../config/prisma");
 const redis = require("../../config/redis");
+const { logger } = require("../../observability/logger");
 const ApiError = require("../../utils/ApiError");
 const safeUser = require("../../utils/safeUser");
 const {
@@ -16,7 +17,7 @@ async function runBestEffort(label, operation) {
   try {
     return await operation();
   } catch (error) {
-    console.error(`${label} failed:`, error);
+    logger.error({ error, label }, "Best-effort event crew operation failed");
     return null;
   }
 }

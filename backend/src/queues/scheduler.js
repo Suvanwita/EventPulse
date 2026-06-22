@@ -1,4 +1,7 @@
+require("../observability/tracing");
+
 const prisma = require("../config/prisma");
+const { logger } = require("../observability/logger");
 const {
   JOB_NAMES,
   closeQueues,
@@ -160,10 +163,10 @@ async function bootstrapSchedules() {
 if (require.main === module) {
   bootstrapSchedules()
     .then(({ eventCount }) => {
-      console.log(`BullMQ schedules bootstrapped for ${eventCount} upcoming event(s).`);
+      logger.info({ eventCount }, "BullMQ schedules bootstrapped");
     })
     .catch((error) => {
-      console.error("BullMQ scheduler bootstrap failed:", error);
+      logger.error({ error }, "BullMQ scheduler bootstrap failed");
       process.exitCode = 1;
     })
     .finally(async () => {

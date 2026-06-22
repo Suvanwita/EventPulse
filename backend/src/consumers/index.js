@@ -1,6 +1,10 @@
+require("../observability/tracing");
+
 const prisma = require("../config/prisma");
 const redis = require("../config/redis");
 const { disconnectProducer, kafka } = require("../config/kafka");
+const { logger } = require("../observability/logger");
+const { shutdownTracing } = require("../observability/tracing");
 const { DLQ_TOPICS, RETRY_TOPICS, TOPICS } = require("../utils/kafkaTopics");
 const { createConsumerRunner } = require("./consumerRunner");
 const { buildTopicHandlers } = require("./eventHandlers");
@@ -69,9 +73,9 @@ async function ensureKafkaTopics() {
       })),
     });
 
-    console.log("Kafka topics ensured", {
+    logger.info({
       count: topicNames.length,
-    });
+    }, "Kafka topics ensured");
   } finally {
     await admin.disconnect();
   }
@@ -90,9 +94,9 @@ async function startConsumers() {
 }
 
 async function shutdown(runners, signal) {
-  console.log("Kafka consumer shutdown requested", {
+  logger.info({
     signal,
-  });
+  }, "Kafka consumer shutdown requested");
 
   await Promise.allSettled(runners.map((runner) => runner.stop()));
   await disconnectProducer();
@@ -102,6 +106,7 @@ async function shutdown(runners, signal) {
     // Redis may not have opened a connection during this process.
   }
   await prisma.$disconnect();
+  await shutdownTracing().catch((error) => logger.error({ error }, "OpenTelemetry shutdown failed"));
 }
 
 if (require.main === module) {
@@ -112,7 +117,7 @@ if (require.main === module) {
       runners = startedRunners;
     })
     .catch(async (error) => {
-      console.error("Kafka consumers failed to start:", error);
+      logger.error({ error }, "Kafka consumers failed to start");
       await shutdown(runners, "startup-error");
       process.exit(1);
     });

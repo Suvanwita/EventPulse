@@ -3,6 +3,8 @@ const {
   formatKafkaValidationError,
   validateKafkaMessage,
 } = require("../utils/kafkaSchemas");
+const { logger } = require("../observability/logger");
+const { withSpan } = require("../observability/spans");
 const { DEFAULT_MAX_ATTEMPTS, getOriginalPayload, publishRetryOrDlq } = require("./kafkaRetry");
 
 const MAX_RETRY_SLEEP_MS = Number(process.env.KAFKA_RETRY_MAX_SLEEP_MS) || 30_000;
@@ -36,12 +38,12 @@ async function waitForRetryWindow(payload, topic) {
 
   if (waitMs > 0) {
     const boundedWait = Math.min(waitMs, MAX_RETRY_SLEEP_MS);
-    console.log("Kafka retry backoff wait", {
+    logger.info({
       topic,
       originalTopic: payload.originalTopic,
       attempt: payload.attempt,
       waitMs: boundedWait,
-    });
+    }, "Kafka retry backoff wait");
     await sleep(boundedWait);
   }
 }
@@ -57,78 +59,93 @@ function createConsumerRunner({
   const topics = [...Object.keys(topicHandlers), retryTopic].filter(Boolean);
 
   async function processMessage({ topic, partition, message }) {
-    let parsedPayload = null;
-    let isRetry = topic === retryTopic;
-    let originalTopic = topic;
-    let payload = null;
-    let attempt = 0;
+    return withSpan("kafka.consume", {
+      "messaging.system": "kafka",
+      "messaging.destination.name": topic,
+      "messaging.operation": "consume",
+      "messaging.kafka.consumer.group": groupId,
+      "messaging.kafka.partition": partition,
+      "messaging.kafka.offset": message.offset,
+    }, async (span) => {
+      let parsedPayload = null;
+      let isRetry = topic === retryTopic;
+      let originalTopic = topic;
+      let payload = null;
+      let attempt = 0;
 
-    try {
-      parsedPayload = parseMessageValue(message);
-      if (isRetry) {
-        validateKafkaMessage(topic, parsedPayload, "incoming retry envelope");
-      }
+      try {
+        parsedPayload = parseMessageValue(message);
+        if (isRetry) {
+          validateKafkaMessage(topic, parsedPayload, "incoming retry envelope");
+        }
 
-      originalTopic = isRetry ? parsedPayload.originalTopic : topic;
-      const handler = topicHandlers[originalTopic];
+        originalTopic = isRetry ? parsedPayload.originalTopic : topic;
+        span.setAttribute("eventpulse.kafka.original_topic", originalTopic);
+        const handler = topicHandlers[originalTopic];
 
-      if (!handler) {
-        throw new Error(`No Kafka handler registered for topic ${originalTopic}`);
-      }
+        if (!handler) {
+          throw new Error(`No Kafka handler registered for topic ${originalTopic}`);
+        }
 
-      attempt = isRetry ? Number(parsedPayload.attempt || 0) : 0;
+        attempt = isRetry ? Number(parsedPayload.attempt || 0) : 0;
 
-      if (isRetry) {
-        await waitForRetryWindow(parsedPayload, topic);
-      }
+        if (isRetry) {
+          await waitForRetryWindow(parsedPayload, topic);
+        }
 
-      payload = isRetry ? getOriginalPayload(parsedPayload) : parsedPayload;
-      validateKafkaMessage(originalTopic, payload, "incoming message");
+        payload = isRetry ? getOriginalPayload(parsedPayload) : parsedPayload;
+        validateKafkaMessage(originalTopic, payload, "incoming message");
 
-      await handler(payload, {
-        topic: originalTopic,
-        consumedTopic: topic,
-        partition,
-        offset: message.offset,
-        key: message.key?.toString() || null,
-        timestamp: message.timestamp,
-        attempt,
-        isRetry,
-      });
-      console.log("Kafka message processed", {
-        groupId,
-        topic,
-        originalTopic,
-        partition,
-        offset: message.offset,
-        attempt,
-      });
-    } catch (error) {
-      const result = await publishRetryOrDlq({
-        topic: originalTopic,
-        payload: parsedPayload || {
+        await handler(payload, {
+          topic: originalTopic,
+          consumedTopic: topic,
+          partition,
+          offset: message.offset,
+          key: message.key?.toString() || null,
+          timestamp: message.timestamp,
+          attempt,
+          isRetry,
+        });
+        logger.info({
+          groupId,
+          topic,
           originalTopic,
-          originalPayload: {
-            raw: message.value?.toString() || null,
+          partition,
+          offset: message.offset,
+          attempt,
+        }, "Kafka message processed");
+      } catch (error) {
+        const result = await publishRetryOrDlq({
+          topic: originalTopic,
+          payload: parsedPayload || {
+            originalTopic,
+            originalPayload: {
+              raw: message.value?.toString() || null,
+            },
           },
-        },
-        message,
-        error,
-        groupId,
-        category,
-        attempt,
-        maxAttempts,
-      });
+          message,
+          error,
+          groupId,
+          category,
+          attempt,
+          maxAttempts,
+        });
 
-      console.error(result.deadLettered ? "Kafka message moved to DLQ" : "Kafka message scheduled for retry", {
-        groupId,
-        topic: originalTopic,
-        targetTopic: result.targetTopic,
-        attempt: result.envelope.attempt,
-        maxAttempts,
-        error: formatKafkaValidationError(error) || error.message,
-      });
-    }
+        logger.error({
+          groupId,
+          topic: originalTopic,
+          targetTopic: result.targetTopic,
+          attempt: result.envelope.attempt,
+          maxAttempts,
+          error,
+          validation: formatKafkaValidationError(error),
+        }, result.deadLettered ? "Kafka message moved to DLQ" : "Kafka message scheduled for retry");
+
+        if (result.deadLettered) {
+          span.setAttribute("eventpulse.kafka.dead_lettered", true);
+        }
+      }
+    });
   }
 
   async function start() {
@@ -141,11 +158,11 @@ function createConsumerRunner({
       });
     }
 
-    console.log("Kafka consumer started", {
+    logger.info({
       groupId,
       category,
       topics,
-    });
+    }, "Kafka consumer started");
 
     await consumer.run({
       eachMessage: processMessage,
@@ -153,10 +170,10 @@ function createConsumerRunner({
   }
 
   async function stop() {
-    console.log("Kafka consumer stopping", {
+    logger.info({
       groupId,
       category,
-    });
+    }, "Kafka consumer stopping");
     await consumer.disconnect();
   }
 

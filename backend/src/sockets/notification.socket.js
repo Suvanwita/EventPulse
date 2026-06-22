@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
 
 const env = require("../config/env");
-const { getUserRoom } = require("../utils/socketEmitter");
+
+function getUserRoom(userId) {
+  return `user:${userId}`;
+}
 
 function getSocketUserId(socket) {
   const token = socket.handshake.auth?.token;
@@ -31,5 +34,6 @@ function registerNotificationSocketHandlers(io) {
 }
 
 module.exports = {
+  getUserRoom,
   registerNotificationSocketHandlers,
 };

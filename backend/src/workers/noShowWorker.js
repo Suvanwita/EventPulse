@@ -1,7 +1,10 @@
+require("../observability/tracing");
+
 const crypto = require("crypto");
 
 const prisma = require("../config/prisma");
 const redis = require("../config/redis");
+const { logger } = require("../observability/logger");
 const { getFirstAvailableSeat } = require("../dsa/seatAllocator");
 const { syncEventCountersFromDb } = require("../utils/eventCounters");
 const {
@@ -30,7 +33,7 @@ async function runBestEffort(label, operation) {
   try {
     return await operation();
   } catch (error) {
-    console.error(`${label} failed:`, error);
+    logger.error({ error, label }, "Best-effort no-show worker operation failed");
     return null;
   }
 }
@@ -262,20 +265,22 @@ async function runNoShowWorker() {
     },
   });
 
-  console.log(`No-show worker found ${events.length} live event(s) to process.`);
+  logger.info({ eventCount: events.length }, "No-show worker found live events to process");
 
   for (const event of events) {
     const result = await processEvent(event);
-    console.log(
-      `Processed event ${event.id}: released=${result.released.length}, promoted=${result.promoted.length}`
-    );
+    logger.info({
+      eventId: event.id,
+      released: result.released.length,
+      promoted: result.promoted.length,
+    }, "No-show worker processed event");
   }
 }
 
 if (require.main === module) {
   runNoShowWorker()
     .catch((error) => {
-      console.error("No-show worker failed:", error);
+      logger.error({ error }, "No-show worker failed");
       process.exitCode = 1;
     })
     .finally(async () => {

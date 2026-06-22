@@ -1,7 +1,10 @@
 const prisma = require("../config/prisma");
 const redis = require("../config/redis");
+const { logger } = require("../observability/logger");
+const { withSpan } = require("../observability/spans");
 const { getSocketServer } = require("../sockets");
 const { getEventRoom } = require("../sockets/event.socket");
+const { getUserRoom } = require("../sockets/notification.socket");
 const { getCounterKeys, syncEventCountersFromDb } = require("./eventCounters");
 
 function getTimestamp() {
@@ -15,17 +18,19 @@ function emitToEventRoom(eventId, eventName, payload) {
     return false;
   }
 
-  io.to(getEventRoom(eventId)).emit(eventName, {
-    eventId,
-    timestamp: getTimestamp(),
-    ...payload,
+  withSpan("socket.emit", {
+    "eventpulse.socket.event": eventName,
+    "eventpulse.event_id": eventId,
+    "eventpulse.socket.room": getEventRoom(eventId),
+  }, async () => {
+    io.to(getEventRoom(eventId)).emit(eventName, {
+      eventId,
+      timestamp: getTimestamp(),
+      ...payload,
+    });
   });
 
   return true;
-}
-
-function getUserRoom(userId) {
-  return `user:${userId}`;
 }
 
 function emitToUserRoom(userId, eventName, payload) {
@@ -35,10 +40,16 @@ function emitToUserRoom(userId, eventName, payload) {
     return false;
   }
 
-  io.to(getUserRoom(userId)).emit(eventName, {
-    userId,
-    timestamp: getTimestamp(),
-    ...payload,
+  withSpan("socket.emit", {
+    "eventpulse.socket.event": eventName,
+    "eventpulse.user_id": userId,
+    "eventpulse.socket.room": getUserRoom(userId),
+  }, async () => {
+    io.to(getUserRoom(userId)).emit(eventName, {
+      userId,
+      timestamp: getTimestamp(),
+      ...payload,
+    });
   });
 
   return true;
@@ -122,7 +133,7 @@ async function getCapacityPayload(eventId) {
       };
     }
   } catch (error) {
-    console.error("Redis counter read failed, falling back to PostgreSQL:", error);
+    logger.error({ error, eventId }, "Redis counter read failed, falling back to PostgreSQL");
     counters = await getDbCounters(eventId);
   }
 

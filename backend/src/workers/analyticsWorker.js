@@ -1,4 +1,7 @@
+require("../observability/tracing");
+
 const prisma = require("../config/prisma");
+const { logger } = require("../observability/logger");
 const analyticsService = require("../modules/analytics/analytics.service");
 
 async function runAnalyticsWorker() {
@@ -12,28 +15,28 @@ async function runAnalyticsWorker() {
     },
   });
 
-  console.log(`Analytics worker processing ${events.length} event(s).`);
+  logger.info({ eventCount: events.length }, "Analytics worker processing events");
 
   for (const event of events) {
     const analytics = await analyticsService.getEventAnalytics(event.id);
-    console.log("Event analytics", {
+    logger.info({
       eventId: event.id,
       title: event.title,
       ...analytics,
-    });
+    }, "Event analytics computed");
   }
 
   const venueAnalytics = await analyticsService.getVenueAnalytics();
-  console.log("Venue analytics", venueAnalytics);
+  logger.info({ venueAnalytics }, "Venue analytics computed");
 
   const checkinAnalytics = await analyticsService.getCheckinAnalytics();
-  console.log("Check-in analytics", checkinAnalytics);
+  logger.info({ checkinAnalytics }, "Check-in analytics computed");
 }
 
 if (require.main === module) {
   runAnalyticsWorker()
     .catch((error) => {
-      console.error("Analytics worker failed:", error);
+      logger.error({ error }, "Analytics worker failed");
       process.exitCode = 1;
     })
     .finally(async () => {

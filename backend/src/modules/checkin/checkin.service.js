@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { logger } = require("../../observability/logger");
 const ApiError = require("../../utils/ApiError");
 const { incrementCheckedIn } = require("../../utils/eventCounters");
 const {
@@ -85,7 +86,7 @@ async function runBestEffort(label, operation) {
   try {
     return await operation();
   } catch (error) {
-    console.error(`${label} failed:`, error);
+    logger.error({ error, label }, "Best-effort check-in operation failed");
     return null;
   }
 }

@@ -4,6 +4,8 @@ const {
   formatKafkaValidationError,
   validateKafkaMessage,
 } = require("./kafkaSchemas");
+const { logger } = require("../observability/logger");
+const { withSpan } = require("../observability/spans");
 
 function normalizePayload(payload = {}) {
   return {
@@ -16,24 +18,33 @@ function normalizePayload(payload = {}) {
 }
 
 async function publishKafkaMessage(topic, message, options = {}) {
-  const producer = await connectProducer();
-  const value = typeof message === "string" ? message : JSON.stringify(message);
+  return withSpan("kafka.publish", {
+    "messaging.system": "kafka",
+    "messaging.destination.name": topic,
+    "messaging.operation": "publish",
+    "messaging.kafka.message_key": options.key || "",
+  }, async () => {
+    const producer = await connectProducer();
+    const value = typeof message === "string" ? message : JSON.stringify(message);
 
-  await producer.send({
-    topic,
-    messages: [
-      {
-        key: options.key,
-        value,
-        headers: options.headers,
-      },
-    ],
+    await producer.send({
+      topic,
+      messages: [
+        {
+          key: options.key,
+          value,
+          headers: options.headers,
+        },
+      ],
+    });
+
+    logger.info({ topic, key: options.key }, "Kafka message published");
+
+    return {
+      published: true,
+      topic,
+    };
   });
-
-  return {
-    published: true,
-    topic,
-  };
 }
 
 async function publishEvent(topic, payload) {
@@ -51,9 +62,13 @@ async function publishEvent(topic, payload) {
       payload: message,
     };
   } catch (error) {
-    console.error(
-      `Kafka publish failed for topic ${topic}:`,
-      formatKafkaValidationError(error) || error
+    logger.error(
+      {
+        topic,
+        error,
+        validation: formatKafkaValidationError(error),
+      },
+      "Kafka publish failed"
     );
 
     return {

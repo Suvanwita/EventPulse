@@ -2,6 +2,7 @@ const crypto = require("crypto");
 
 const prisma = require("../../config/prisma");
 const { getFirstAvailableSeat } = require("../../dsa/seatAllocator");
+const { logger } = require("../../observability/logger");
 const ApiError = require("../../utils/ApiError");
 const {
   decrementRegistered,
@@ -57,7 +58,7 @@ async function runBestEffort(label, operation) {
   try {
     return await operation();
   } catch (error) {
-    console.error(`${label} failed:`, error);
+    logger.error({ error, label }, "Best-effort registration operation failed");
     return null;
   }
 }

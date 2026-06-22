@@ -257,6 +257,25 @@ Job types:
 
 Run `npm run scheduler:bullmq` once during deployment or local boot to register repeatable jobs and delayed jobs for upcoming events. Run `npm run worker:bullmq` as a long-running worker process. Jobs use exponential backoff, bounded completed/failed retention, and stable job IDs for event reminders so event updates replace pending schedules.
 
+## Observability
+
+The backend uses Pino for structured JSON logs and OpenTelemetry for traces. Local development works without an OpenTelemetry collector because tracing is disabled by default.
+
+Environment variables:
+
+```bash
+LOG_LEVEL=info
+OTEL_ENABLED=false
+OTEL_SERVICE_NAME=eventpulse-backend
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces
+OTEL_DIAG_LOGGING=false
+```
+
+When `OTEL_ENABLED=true`, EventPulse auto-instruments Node HTTP/Express, PostgreSQL, Redis/ioredis, KafkaJS, Socket.IO, and Pino where supported by the OpenTelemetry auto-instrumentation package. The backend also creates manual spans for Kafka publish/consume operations, BullMQ job processing, and Socket.IO emits. Logs include request IDs and active trace/span IDs when a trace context exists.
+
+For local traces, start an OTLP-compatible collector and set `OTEL_ENABLED=true` plus `OTEL_EXPORTER_OTLP_ENDPOINT`. Without an endpoint, tracing can still be enabled for local context propagation, but spans are not exported.
+
 ## Demo Credentials
 
 All seeded users use password `password123`.

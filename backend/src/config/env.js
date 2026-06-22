@@ -9,6 +9,8 @@ const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
   REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
   KAFKA_BROKER: process.env.KAFKA_BROKER || "localhost:9094",
+  OTEL_ENABLED: String(process.env.OTEL_ENABLED || process.env.OBSERVABILITY_ENABLED || "false").toLowerCase() === "true",
+  OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
 };
 
 module.exports = env;

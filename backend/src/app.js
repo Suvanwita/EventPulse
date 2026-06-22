@@ -1,11 +1,11 @@
 const express = require("express");
 const cors = require("cors");
-const morgan = require("morgan");
 
 const env = require("./config/env");
 const routes = require("./routes");
 const errorMiddleware = require("./middleware/error.middleware");
 const notFoundMiddleware = require("./middleware/notFound.middleware");
+const { createHttpLogger } = require("./observability/logger");
 
 const app = express();
 
@@ -16,7 +16,7 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(morgan("dev"));
+app.use(createHttpLogger());
 
 app.use(routes);
 app.use(notFoundMiddleware);

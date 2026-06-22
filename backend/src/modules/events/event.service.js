@@ -3,6 +3,7 @@ const { hasOverlap } = require("../../dsa/intervalScheduler");
 const ApiError = require("../../utils/ApiError");
 const safeUser = require("../../utils/safeUser");
 const { scheduleEventLifecycleJobs } = require("../../queues/scheduler");
+const { logger } = require("../../observability/logger");
 const { EVENT_STATUSES } = require("./event.validation");
 
 function canModifyEvent(event, user) {
@@ -94,7 +95,7 @@ async function createEvent(data, user) {
   });
 
   await scheduleEventLifecycleJobs(event).catch((error) => {
-    console.error("BullMQ event lifecycle scheduling failed:", error);
+    logger.error({ error, eventId: event.id }, "BullMQ event lifecycle scheduling failed");
   });
 
   return event;
@@ -240,7 +241,7 @@ async function updateEvent(id, data, user) {
   });
 
   await scheduleEventLifecycleJobs(event).catch((error) => {
-    console.error("BullMQ event lifecycle rescheduling failed:", error);
+    logger.error({ error, eventId: event.id }, "BullMQ event lifecycle rescheduling failed");
   });
 
   return event;
